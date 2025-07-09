@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-#from typing import Union
 
 
-Reranker, Embedding, Generator = None, None, None
+Reranker, Embedding, Generator, Pretrained = None, None, None, None
+
 
 #### 1. reranker
 def init_reranker(model_path):
@@ -60,3 +60,39 @@ def init_generator(model_path):
 def generator(messages, max_tokens):
     response = Generator(messages, max_new_tokens=max_tokens)
     return response[0]['generated_text']
+
+
+#### 4. pretrained
+def init_pretrained(model_path):
+    """ model_path
+    ├── config.json
+    ├── pytorch_model.bin or model.safetensors
+    ├── tokenizer_config.json
+    ├── tokenizer.json
+    └── vocab.txt 或 merges.txt / special_tokens_map.json
+    """
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+
+    global Pretrained
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForCausalLM.from_pretrained(model_path)
+    Pretrained = (tokenizer, model)
+
+def pretrained(input_text: str, max_tokens):
+    tokenizer, model = Pretrained
+
+    #### encode using chat template
+    #input_ids = tokenizer.apply_chat_template(messages, return_tensors="pt")
+    #output = model.generate(input_ids, max_new_tokens=max_tokens)
+
+    inputs = tokenizer(input_text, return_tensors="pt")
+    # {
+    #   'input_ids': tensor([[...]]),
+    #   'attention_mask': tensor([[...]]),
+    #   ?? 'token_type_ids': tensor([[0, ..., 0, ..., 1]]),
+    # }
+
+    outputs = model.generate(**inputs, max_new_tokens=max_tokens)
+
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
