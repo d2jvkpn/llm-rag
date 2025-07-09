@@ -23,6 +23,23 @@ def file_md5(file_path):
     return hash_md5.hexdigest()
 
 
+def chunk_list(lst, size=10):
+    return [lst[i : i + size] for i in range(0, len(lst), size)]
+
+    #### Usage
+    #arr = list(range(1, 35))
+    #chunks = chunk_list(arr, 10)
+
+
+def chunk_generator(lst, size=10):
+    for i in range(0, len(lst), size):
+        yield lst[i : i + size]
+
+    #### Usage
+    #for chunk in chunk_generator(arr, 10):
+    #    print(chunk)
+
+
 def copy_gradio_files(paths, dirctory):
     docs = []
 
@@ -37,7 +54,7 @@ def copy_gradio_files(paths, dirctory):
         doc = { "path": target_path, "doc_id": doc_id, "exists": False }
 
         if os.path.exists(target_path) and os.path.isfile(target_path):
-            doc["exists"] = True
+            doc['exists'] = True
         else:
             os.makedirs(target_dir, exist_ok=True)
             print(f"{now()} --> copy_gradio_files: {p} -> {target_path}")

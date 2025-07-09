@@ -11,7 +11,7 @@ def document2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
     ext = path.rsplit(".", 1)[-1]
     number_of_pages = 0
 
-    if ext in ["pptx"]:
+    if ext == "pptx":
        return pptx2chunks(path, doc_id)
     elif ext == "pdf":
         return pdf2chunks(path, doc_id, chunk_size, chunk_overlap)
@@ -85,7 +85,7 @@ def pdf2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
     for page in PyPDFLoader(path).load_and_split():
         number_of_pages += 1
         texts = splitter.split_text(page.page_content)
-        page = page.metadata["page"]
+        page = page.metadata['page']
 
         for i in range(len(texts)):
             payload = {

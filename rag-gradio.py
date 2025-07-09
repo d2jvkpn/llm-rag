@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os, argparse, re # time, shutil
-os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import process_doc, embed, local_llms
 from src.utils import now, copy_gradio_files
@@ -11,13 +11,12 @@ import gradio as gr
 #py = os.path.abspath(os.sys.argv[0])
 #app = os.path.basename(os.path.dirname(py))
 
-#### 1. configuration and setup
+#### 1. configuration
 parser = argparse.ArgumentParser(
     description="parse commandline arguments",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 
-parser.add_argument("--app", help="app name", default="ai-rag-a02")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 parser.add_argument("--max_tokens", help="max tokens", type=int, default=1024)
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
@@ -33,33 +32,41 @@ if args.debug:
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
 
-config["system_prompt"] = config["system_prompt"].strip()
-config["user_prompt"] = config["user_prompt"].strip()
+config['system_prompt'] = config['system_prompt'].strip()
+config['user_prompt'] = config['user_prompt'].strip()
 
-config["upload_dir"] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
-os.makedirs(config["upload_dir"], exist_ok=True)
+config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
+print(f"--> upload_dir: {config['upload_dir']}")
+
+embedding_provider = config['embedding']['provider']
+embedding_model = os.path.basename(config['embedding']['model'])
+config['qdrant']['collection'] = f"{embedding_provider}__{embedding_model.replace(':', '--')}"
+print(f"--> collection: {config['qdrant]['collection']}")
+
+#### 2. setup
+os.makedirs(config['upload_dir'], exist_ok=True)
 
 embed.init(args.config)
+
 if args.delete_collection:
-    collection = config["qdrant"]["collection"]
+    collection = config['qdrant']['collection']
 
     if embed.QClient.collection_exists(collection):
         print(f"--> deleting collection: {collection=}")
         embed.QClient.delete_collection(collection)
 
+if config['reranker']['enabled']:
+    print("--> local_llms.init_reranker:", config['reranker']['model'])
+    local_llms.init_reranker(config['reranker']['model'])
 
-if config["reranker"]["enabled"]:
-    print("--> local_llms.init_reranker:", config["reranker"]["model"])
-    local_llms.init_reranker(config["reranker"]["model"])
 
-
-#### 2. functions
+#### 3. functions
 def call_llm(messages, selected_model, temperature):
     provider, model = selected_model.split("/", 1)
     print(f"{now()} --> call_llm: provider={provider}, model={model}, temperature={temperature}")
 
     found = next(
-        (v for v in config["llm_models"] if v["provider"] == provider and v["model"] == model),
+        (v for v in config['llm_models'] if v['provider'] == provider and v['model'] == model),
         None,
     )
 
@@ -80,27 +87,27 @@ def call_llm(messages, selected_model, temperature):
 
 
 def rag_docs(files, user_input):
-    top_n = config["qdrant"]["top_n"]
-    top_k = config["reranker"]["top_n"]
+    top_n = config['qdrant']['top_n']
+    top_k = config['reranker']['top_n']
 
     if files:
         paths = [v.name for v in files]
-        docs = copy_gradio_files(paths, config["upload_dir"])
+        docs = copy_gradio_files(paths, config['upload_dir'])
         # print(f"{now()} --> 📎 Uploaded: {docs}")
         embed.embedding_docs(docs, process_doc.document2chunks)
-        doc_ids = [d["doc_id"] for d in docs]
+        doc_ids = [d['doc_id'] for d in docs]
     else:
         return []
 
-    vector = embed.litellm_embedding(user_input)
+    vector = embed.litellm_embedding([user_input])[0]
     # print(f"{now()} --> rag_docs vector: {vector}")
-    hits = embed.search_doc(vector[0], doc_ids, top_n=top_n)
+    hits = embed.search_doc(vector, doc_ids, top_n=top_n)
     print(f"{now()} --> retrieved chunks: {len(hits.points)}")
 
     if len(hits.points) == 0:
         return []
 
-    if not config["reranker"]["enabled"]:
+    if not config['reranker']['enabled']:
         return embed.points_to_chunks(hits.points, 64)
 
     #for p in hits.points:
@@ -117,7 +124,7 @@ def rag_docs(files, user_input):
 
     return embed.points_to_chunks(points, 64)
 
-#### 3. biz
+#### 4. biz
 def chat_func(history, user_input, files,
     system_prompt, user_prompt, selected_model, rag, temperature):
     # print(f"--> system_prompt: {system_prompt}")
@@ -126,7 +133,7 @@ def chat_func(history, user_input, files,
 
     user_input = user_input.strip()
     if user_input == "":
-        return [history, ""]
+        return [history, "']
 
     if rag:
         outputs = rag_docs(files, user_input)
@@ -135,21 +142,19 @@ def chat_func(history, user_input, files,
             texts = [f"#### {i+1}. {v}" for i, v in enumerate(outputs)]
             context = "\n\n".join(texts)
             user_input = f"{user_prompt}".format(input=user_input, context=context)
-        else:
-            print(f"{now()} --> rag_docs not found")
 
     messages = [{"role": "system", "content": system_prompt}]
 
     for m in (history[-5:] if len(history) > 5 else history):
         # extract user_input only for rag message
-        content = m["content"].split("\n", 1)[-1]
+        content = m['content'].split("\n", 1)[-1]
 
-        if m["role"] == "user" and m["content"].startswith("📚"):
+        if m['role'] == "user" and m['content'].startswith("📚"):
             match = re.search(r"Input:\s*(.*?)\s*Context:", content, re.DOTALL)
             if match:
                 content = match.group(1).strip()
 
-        messages.append({"role": m["role"], "content": content})
+        messages.append({"role": m['role'], "content": content})
 
     msg = { "role": "user", "content": user_input }
     messages.append(msg)
@@ -165,31 +170,31 @@ def chat_func(history, user_input, files,
     }
 
     if rag:
-        msg["content"] = f"📚: {now()}, temperature={temperature}\n{msg['content']}"
+        msg['content'] = f"📚: {now()}, temperature={temperature}\n{msg['content']}"
     else:
-        msg["content"] = f"🧑: {now()}, temperature={temperature}\n{msg['content']}"
+        msg['content'] = f"🧑: {now()}, temperature={temperature}\n{msg['content']}"
 
     history.extend([msg, reply])
     #time.sleep(5)
 
-    return [history, ""]
+    return [history, "']
 
 
-with gr.Blocks(title=args.app) as webui:
+with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
     upload_file_types = config['http']['upload_file_types']
-    model_choices = [f"{v['provider']}/{v['model']}" for v in config["llm_models"]]
+    model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
 
     with gr.Row():
         with gr.Column(scale=1):
             system_prompt_input = gr.Textbox(
-                label="System Prompt", value=config["system_prompt"],
+                label="System Prompt", value=config['system_prompt'],
                 lines=8, max_lines=8, interactive=True,
             )
 
         with gr.Column(scale=1):
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                value=config["user_prompt"],
+                value=config['user_prompt'],
                 lines=8, max_lines=8,
             )
 
@@ -217,7 +222,6 @@ with gr.Blocks(title=args.app) as webui:
             rag = gr.Checkbox(label="Enable RAG", value=False)
             #clear_button = gr.Button("Clear", scale=1)
 
-
         with gr.Column(scale=1, min_width=250):
             send_button = gr.Button("Send", variant="primary", scale=1)
 
@@ -233,11 +237,8 @@ with gr.Blocks(title=args.app) as webui:
 
     outputs=[chatbot, user_input]
 
-    # Submit message
-    send_button.click(fn=chat_func, inputs=inputs, outputs=outputs)
-
-    # Allow pressing enter
-    user_input.submit(fn=chat_func, inputs=inputs, outputs=outputs)
+    send_button.click(fn=chat_func, inputs=inputs, outputs=outputs) # Submit message
+    user_input.submit(fn=chat_func, inputs=inputs, outputs=outputs) # Allow pressing enter
 
     # Clear inputs
     #clear_button.click(
@@ -246,4 +247,5 @@ with gr.Blocks(title=args.app) as webui:
     #    outputs=[system_prompt_input, user_prompt_input, files_input, chatbot]
     #)
 
+#### 5. run
 webui.launch(share=args.share, server_name=args.host, server_port=args.port)

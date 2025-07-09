@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os, uuid
-from typing import Union
-os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+# from typing import Union
+os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from .chrono import Chrono
 from .utils import now
@@ -20,48 +20,55 @@ def init(filepath): # yaml filepath
         Config = yaml.safe_load(f)
 
     QClient = QdrantClient(
-        url=Config["qdrant"]["addr"], prefer_grpc=True, https=False, timeout=30,
+        url=Config['qdrant']['addr'], prefer_grpc=True, https=False, timeout=30,
     )
 
 
-def embedding_api(content: Union[str, list[str]]):
-    api_base = Config["embedding"]['api_base']     # "http://127.0.0.1:11434/api/embed"
-    api_key = Config["embedding"].get('api_key', '')
-    model = Config["embedding"]["model"] # "bge-m3:567m"
+def embedding_api(texts: list[str]): # Union[str, list[str]]
+    api_base = Config['embedding']['api_base']     # "http://127.0.0.1:11434/api/embed"
+    api_key = Config['embedding'].get('api_key', '')
+    model = Config['embedding']['model'] # "bge-m3:567m"
 
     headers = { "Content-Type": "application/json", "Authorization": f"Bearer {api_key}" }
-    data = { "model": model, "encoding_format": "float", "input": content }
+    data = { "model": model, "encoding_format": "float", "input": texts }
 
     response = requests.post(api_base+"/v1/embeddings", headers=headers, json=data)
 
     if response.status_code == 200:
         ans = response.json()
-        return [v["embedding"] for v in ans["data"]]
+        return [v['embedding'] for v in ans['data']]
     else:
         raise Exception(f"API Error: {response.status_code}, {response.text}")
 
 
-def litellm_embedding(content: Union[str, list[str]]):
-    api_base = Config["embedding"]['api_base']        # "http://127.0.0.1:11434/api/embed"
-    api_key = Config["embedding"].get('api_key', '')
-    model = Config["embedding"]["model"]              # "bge-m3:567m"
+def litellm_embedding(texts: list[str]): # Union[str, list[str]], "hello", ['hello", "world']
+    api_base = Config['embedding']['api_base']         # "http://127.0.0.1:11434/api/embed"
+    api_key = Config['embedding'].get('api_key', '')
+    model = Config['embedding']['model']               # "bge-m3:567m"
 
-    if Config["embedding"].get("hosted_vllm", False):
+    if Config['embedding'].get("hosted_vllm", False):
         provider = "hosted_vllm"
     else:
-        provider = Config["embedding"]["provider"]
+        provider = Config['embedding']['provider']     # ollama
 
-    ans = litellm.embedding(
-        model, custom_llm_provider=provider,  # bge-m3:567m, ollama
-        api_base=api_base, api_key=api_key,   # http://127.0.0.1:11434
-        input=content,                        # "hello", ["hello", "world"]
-    )
 
-    return [v["embedding"] for v in ans["data"]]
+    batches = [texts[i : i + 10] for i in range(0, len(texts), 10)]
+    vectors = []
+
+    for text in batches:
+        response = litellm.embedding(
+            model, custom_llm_provider=provider,
+            api_base=api_base, api_key=api_key,
+            input=text,
+        )
+
+        vectors.extend([v['embedding'] for v in response['data']])
+
+    return vectors
 
 
 def vectordb_doc_exists(doc_id):
-    collection = Config["qdrant"]["collection"]
+    collection = Config['qdrant']['collection']
 
     if not QClient.collection_exists(collection):
         return False
@@ -74,9 +81,9 @@ def vectordb_doc_exists(doc_id):
     return len(hits[0]) > 0
 
 def vectordb_save(doc, vectors, recreate=False):
-    assert(len(doc["chunks"]) == len(vectors))
+    assert(len(doc['chunks']) == len(vectors))
     t0 = Chrono()
-    collection = Config["qdrant"]["collection"]
+    collection = Config['qdrant']['collection']
     dimension = len(vectors[0])
 
     # print(f"==> {Chrono()} Starting embedding_doc: doc={doc['meta']}")
@@ -117,17 +124,17 @@ def vectordb_save(doc, vectors, recreate=False):
     if recreate and vectordb_doc_exists(doc_id) :
         QClient.delete(collection_name=collection, points_selector=selector)
 
-    doc["meta"].update({ "collection": collection })
+    doc['meta'].update({ "collection": collection })
 
     #print(f"--> {Chrono()} upsert to the vector database")
     points = [
-        qmodels.PointStruct(id=str(uuid.uuid4()), vector=vectors[i], payload=doc["chunks"][i])
+        qmodels.PointStruct(id=str(uuid.uuid4()), vector=vectors[i], payload=doc['chunks'][i])
         for i in range(len(vectors))
     ]
 
     QClient.upsert(collection_name=collection, points=points)
 
-    doc["meta"].update({ "embedding_at": f"{t0}", "embedding_elapsed": t0.elapsed() })
+    doc['meta'].update({ "embedding_at": f"{t0}", "embedding_elapsed": t0.elapsed() })
 
     #print(f"<== {Chrono()} Done")
     #print(f"==> {Chrono()} process_doc 4")
@@ -135,7 +142,7 @@ def vectordb_save(doc, vectors, recreate=False):
 
 
 def search_doc(vector, doc_ids, top_n=10, score_threshold=0.5):
-    collection = Config["qdrant"]["collection"]
+    collection = Config['qdrant']['collection']
 
     #query_filter=qmodels.Filter(
     #    must=[qmodels.FieldCondition(key="category", match=qmodels.MatchValue(value="technology"))],
@@ -157,8 +164,8 @@ def search_doc(vector, doc_ids, top_n=10, score_threshold=0.5):
         limit=top_n, with_payload=True, offset=None, score_threshold=score_threshold,
     )
 
-    #context = "\n---\n".join([point.payload["text"].strip() for point in hits.points])
-    #texts = [point.payload["text"].strip() for point in hits.points]
+    #context = "\n---\n".join([point.payload['text'].strip() for point in hits.points])
+    #texts = [point.payload['text'].strip() for point in hits.points]
 
     return hits
 
@@ -166,18 +173,18 @@ def search_doc(vector, doc_ids, top_n=10, score_threshold=0.5):
 # docs: [{path: , doc_id: }]
 def embedding_docs(docs, document2chunks):
     for d in docs:
-        doc_path = repr(d["path"])
+        doc_path = repr(d['path'])
 
-        if vectordb_doc_exists(d["doc_id"]):
+        if vectordb_doc_exists(d['doc_id']):
             print(f"{now()} ---> embedding_docs skip: {doc_path}")
             continue
 
         print(f"{now()} ---> document2chunks: {d}")
-        doc = document2chunks(d["path"], d["doc_id"])
+        doc = document2chunks(d['path'], d['doc_id'])
 
-        texts = [c["text"]for c in doc["chunks"]]
+        texts = [c['text']for c in doc['chunks']]
         print(f"{now()} ---> litellm_embedding: chunks={len(texts)}, doc_path={doc_path}")
-        vectors = litellm_embedding(texts) # ?? split into batches
+        vectors = litellm_embedding(texts)
 
         print(f"{now()} ---> vectordb_save: chunks={len(texts)}, doc_path={doc_path}")
         vectordb_save(doc, vectors, recreate=False)
