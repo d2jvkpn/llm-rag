@@ -20,7 +20,6 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
-parser.add_argument("--max_tokens", help="max tokens", type=int, default=1024)
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
 parser.add_argument("--delete-collection", help="delete collection in qdran", action="store_true")
 parser.add_argument("--debug", help="debug mode", action="store_true")
@@ -36,8 +35,9 @@ if args.debug:
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
 
-##### dynamic
+##### dynamic parameters
 config['llm']['temperature'] = 0.5
+config['llm']['max_tokens'] = 1024
 config['llm']['model_choices'] = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
 config['llm']['selected_model'] = config['llm']['model_choices'][0]
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
@@ -45,8 +45,8 @@ config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
 config['rag'] = { "enabled": False }
 
-#### static
-config['llm']['max_tokens'] = args.max_tokens
+#### static parameters
+
 config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
 config['reranker']['enabled'] = args.reranker
 
@@ -58,9 +58,6 @@ _model = os.path.basename(config['embedding']['model']).replace(':', '--')
 config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
 def static_parameters():
-    d = config['llm']
-    llm = { "max_tokens": d['max_tokens'] }
-
     d = config['embedding']
     embedding = { "provider": d['provider'], "model": d['model'] }
 
@@ -71,7 +68,6 @@ def static_parameters():
     reranker = { "enabled": d['enabled'], "top_n": d['top_n'] }
 
     strs = [
-        f"- llm: {json.dumps(llm)}",
         f"- embedding: {json.dumps(embedding)}",
         f"- vector_db: {json.dumps(vector_db)}",
         f"- reranker: {json.dumps(reranker)}",
@@ -260,6 +256,13 @@ def update_llm(key, value):
     print(f"--> update_llm {key}: {value}")
     config['llm'][key] = value
 
+def update_llm_min(key, value, min_val=None):
+    if min_val and value < min_val:
+        value = min_val
+
+    print(f"--> update_llm_min {key}: {value}")
+    config['llm'][key] = value
+
 # deprecated
 def update_llm_textbox(key, value):
     #print(f"--> update_llm {key}: {value}")
@@ -288,13 +291,21 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
                 #gr.ParamViewer(value=param_info)
 
             with gr.Row():
-                temperature_slider = gr.Slider(
-                    label="Temperature",
-                    value=config['llm']['temperature'], minimum=0.0, maximum=1.5, step=0.1,
-                )
-
-                rag_checkbox = gr.Checkbox(label="RAG", value=config['rag']['enabled'])
                 #clear_button = gr.Button("Clear", scale=1)
+                with gr.Row():
+                    temperature_slider = gr.Slider(
+                        label="Temperature",
+                        value=config['llm']['temperature'], minimum=0.0, maximum=1.5, step=0.1,
+                    )
+
+                    max_tokens_input = gr.Number(
+                        label="max_tokens(min=20)",
+                        value=config['llm']['max_tokens'],
+                        precision=1,
+                    )
+
+                with gr.Row():
+                    rag_checkbox = gr.Checkbox(label="RAG", value=config['rag']['enabled'])
 
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
@@ -336,6 +347,11 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
     #    fn=lambda value: update_llm_textbox("system_prompt", value),
     #    inputs=system_prompt_input, outputs=system_prompt_input,
     #)
+
+    max_tokens_input.change(
+        fn=lambda value: update_llm_min("max_tokens", value, 20),
+        inputs=max_tokens_input, outputs=None,
+    )
 
     temperature_slider.change(
         fn=lambda value: update_llm("temperature", value),
