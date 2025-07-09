@@ -19,13 +19,15 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
+
 parser.add_argument("--max_tokens", help="max tokens", type=int, default=1024)
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
 parser.add_argument("--delete-collection", help="delete collection in qdran", action="store_true")
+parser.add_argument("--debug", help="debug mode", action="store_true")
+
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
 parser.add_argument("--port", help="http listening port", type=int, default=7860)
 parser.add_argument("--share", help="gradio share", action="store_true")
-parser.add_argument("--debug", help="debug mode", action="store_true")
 
 args = parser.parse_args()
 if args.debug:
@@ -35,40 +37,41 @@ with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
 
 config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
-config['reranker']['enabled'] = args.reranker
 
 config['llm']['max_tokens'] = args.max_tokens
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
 config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
+config['reranker']['enabled'] = args.reranker
+
 config['http']['share'] = args.share
 config['http']['host'] = args.host
 config['http']['port'] = args.port
 
-embedding_provider = config['embedding']['provider']
-embedding_model = os.path.basename(config['embedding']['model'])
-config['qdrant']['collection'] = f"{embedding_provider}__{embedding_model.replace(':', '--')}"
+_model = os.path.basename(config['embedding']['model']).replace(':', '--')
+config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
 def get_parameters():
     d = config['llm']
-    _llm = { "max_tokens": d['max_tokens'] }
+    llm = { "max_tokens": d['max_tokens'] }
 
-    _embedding = { "provider": embedding_provider, "model": embedding_model }
+    d = config['embedding']
+    embedding = { "provider": d['provider'], "model": d['model'] }
 
     d = config['qdrant']
-    _vector_db = { "collection": d['collection'], "top_n": d['top_n'] }
+    vector_db = { "collection": d['collection'], "top_n": d['top_n'] }
 
     d = config['reranker']
-    _reranker = { "enabled": d['enabled'], "top_n": d['top_n'] }
+    reranker = { "enabled": d['enabled'], "top_n": d['top_n'] }
 
     strs = [
-        f"- llm: {json.dumps(_llm)}",
-        f"- embedding: {json.dumps(_embedding)}",
-        f"- vector_db: {json.dumps(_vector_db)}",
-        f"- reranker: {json.dumps(_reranker)}",
+        f"- llm: {json.dumps(llm)}",
+        f"- embedding: {json.dumps(embedding)}",
+        f"- vector_db: {json.dumps(vector_db)}",
+        f"- reranker: {json.dumps(reranker)}",
     ]
 
-    return "\n".join(strs)
+    return "Parameters\n" + "\n".join(strs)
 
 
 #### 2. setup
@@ -79,7 +82,6 @@ print(f"--> upload_dir: {config['upload_dir']}")
 
 
 embed.init(config)
-print(f"--> using collection: {config['qdrant']['collection']}")
 
 if args.delete_collection:
     collection = config['qdrant']['collection']
@@ -201,15 +203,15 @@ def chat_func(history, user_input, files,
     # answer = user_input.upper()
     # reply = { "role": "assistant", "content": f"🤖: {now()}, model={repr(model)}\n{answer}" }
     response = call_llm(messages, selected_model, temperature)
-    message = response.choices[0].message
+    ans = response.choices[0].message
     usage = response.usage
     usage = [usage.prompt_tokens, usage.completion_tokens, usage.total_tokens]
     tokens = f"prompt={usage[0]}, completion={usage[1]}, total={usage[2]}"
     print(f"{now()} --> llm_tokens: {tokens}")
 
     reply = {
-        "role": message.role,
-        "content": f"🤖: {now()}, model={repr(selected_model)}, {tokens}\n{message.content}",
+        "role": ans.role,
+        "content": f"🤖: {now()}, model={repr(selected_model)}, {tokens}\n{ans.content}",
     }
 
     if rag:
@@ -241,7 +243,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
             )
 
             with gr.Row():
-                gr.Markdown(f"Parameters\n{get_parameters()}")
+                gr.Markdown(get_parameters())
                 #gr.ParamViewer(value=param_info)
 
             with gr.Row():
@@ -250,7 +252,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
                     value=0.5, minimum=0.0, maximum=1.5, step=0.1,
                 )
 
-                rag = gr.Checkbox(label="Enable RAG", value=False)
+                rag = gr.Checkbox(label="RAG", value=False)
                 #clear_button = gr.Button("Clear", scale=1)
 
             user_prompt_input = gr.Textbox(
