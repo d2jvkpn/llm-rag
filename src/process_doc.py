@@ -28,8 +28,8 @@ def document2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
     chunks = []
     for i in range(len(texts)):
         payload = {
-            "path": path, "doc_id": doc_id, "page": 0,
-            "chunk_id": f"{doc_id}_{i}-0", "text": texts[i],
+            "path": path, "doc_id": doc_id,
+            "chunk_id": f"{doc_id}-page0-c{i}", "text": texts[i],
         }
 
         chunks.append(payload)
@@ -60,8 +60,8 @@ def pptx2chunks(path, doc_id):
         if len(paragraphs) == 0: continue
 
         payload = {
-            "path": path, "doc_id": doc_id, "page": page,
-            "chunk_id": f"{doc_id}_{page}-{i}", "text": "\n".join(paragraphs),
+            "path": path, "doc_id": doc_id,
+            "chunk_id": f"{doc_id}-page{page}-c{i}", "text": "\n".join(paragraphs),
         }
         chunks.append(payload)
 
@@ -89,8 +89,8 @@ def pdf2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
 
         for i in range(len(texts)):
             payload = {
-                "path": path, "doc_id": doc_id, "page": page,
-                "chunk_id": f"{doc_id}_{page}-{i}", "text": texts[i],
+                "path": path, "doc_id": doc_id,
+                "chunk_id": f"{doc_id}-page{page}-c{i}", "text": texts[i],
             }
 
             chunks.append(payload)
