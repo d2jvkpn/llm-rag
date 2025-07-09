@@ -2,7 +2,7 @@
 import os, argparse, time, re, shutil
 os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
 
-from src import process_doc, embed
+from src import process_doc, embed, llms
 from src.utils import now, file_md5, move_gradio_files
 
 import yaml, litellm
@@ -45,6 +45,11 @@ if args.delete_collection:
     if embed.QClient.collection_exists(collection):
         print(f"--> deleting collection: {collection=}")
         embed.QClient.delete_collection(collection)
+
+
+if config["reranker"]["enabled"]:
+    print("--> llms.init_reranker:", config["reranker"]["model"])
+    llms.init_reranker(config["reranker"]["model"])
 
 
 def call_llm(messages, selected_model, temperature):
@@ -92,10 +97,21 @@ def embedding_docs(docs):
         embed.vectordb_save(doc, vectors, recreate=False)
 
 
+def points_to_chunks(points):
+    texts = []
+
+    for p in points:
+        chunk_id = p.payload['chunk_id']
+        filename = os.path.basename(p.payload['path'])[:32]
+        text = p.payload['text'].strip()
+        texts.append(f"chunk_id={chunk_id}, {filename}\n```text\n{text}\n```")
+
+    return texts
+
 def rag_docs(files, user_input):
     doc_ids = []
     top_n = config["qdrant"]["top_n"]
-    top_k = config["rerank"]["top_n"]
+    top_k = config["reranker"]["top_n"]
 
     if files:
         #file_names = [os.path.basename(v.name) for v in files]
@@ -105,25 +121,32 @@ def rag_docs(files, user_input):
         doc_ids = ["md5-" + d["md5"] for d in docs]
 
     if len(doc_ids) == 0:
-        return ""
+        return []
 
     vector = embed.litellm_embedding(user_input)
     # print(f"{now()} --> rag_docs vector: {vector}")
     hits = embed.search_doc(vector[0], doc_ids, top_n=top_n)
     print(f"{now()} --> retrieved chunks: {len(hits.points)}")
 
-    if args.debug:
-        print(f"==> Hits:\n{hits}")
-
     if len(hits.points) == 0:
-        return ""
+        return []
 
-    texts = [f"- {p.payload['text']}" for p in hits.points]
-    if len(hits.points) <= top_k + 3:
-        return "\n\n".join(texts)
+    if not config["reranker"]["enabled"]:
+        return points_to_chunks(hits.points)
 
-    # TODO: reranker
-    return "\n\n".join(texts)
+    #for p in hits.points:
+    #    chunk_id = p.payload['chunk_id']
+    #    page = p.payload['page']
+    #    path = p.payload['path']
+    #    print(f"--> hits: chunk_id={chunk_id}, page={page}, path={path}")
+    #    #print(f"    text: {p.payload['text']}")
+
+    texts = [p.payload['text'] for p in hits.points]
+    print(f"{now()} --> rerank_texts: {top_k}")
+    scores = llms.rerank_texts(user_input, texts)
+    points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
+
+    return points_to_chunks(points)
 
 def chat_func(history, user_input, files,
     system_prompt, user_prompt, selected_model, rag, temperature):
@@ -136,11 +159,14 @@ def chat_func(history, user_input, files,
         return [history, ""]
 
     if rag:
-        context = rag_docs(files, user_input)
-        if context:
+        outputs = rag_docs(files, user_input)
+        if len(outputs) > 0:
+            # print(f"--> rag outputs: {outputs}")
+            texts = [f"#### {i+1}. {v}" for i, v in enumerate(outputs)]
+            context = "\n\n".join(texts)
             user_input = f"{user_prompt}".format(input=user_input, context=context)
         else:
-            print("{} --> rag not context")
+            print(f"{now()} --> rag_docs not found")
 
     messages = [{"role": "system", "content": system_prompt}]
 

@@ -23,12 +23,20 @@ embedding:
   model: bge-m3:567m
   api_base: http://localhost:11434
 
+  ali:
+    provider: ali
+    model: text-embedding-v4
+    api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key: sk-xxxxxxxx
+    hosted_vllm: true
+
 qdrant:
   addr: http://ali-s01-sh.lan:6333
   collection: ollama__bge-m3--567m
   top_n: 10
 
 reranker:
+  enabled: true
   model: data/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2.model
   top_n: 5
 

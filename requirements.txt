@@ -19,9 +19,3 @@ langchain-community
 pypdf
 python-docx
 python-pptx
-
-#### alternatives
-#fastembed
-#pdfminer
-#docx
-#pdfplumber

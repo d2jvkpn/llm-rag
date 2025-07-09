@@ -13,7 +13,7 @@ from qdrant_client import QdrantClient, models as qmodels
 Config, QClient = {}, None
 
 def init(filepath): # yaml filepath
-    global Config,QClient
+    global Config, QClient
 
     with open(filepath, 'r') as f:
         Config = yaml.safe_load(f)
@@ -44,11 +44,15 @@ def litellm_embedding(content: Union[str, list[str]]):
     api_base = Config["embedding"]['api_base']        # "http://127.0.0.1:11434/api/embed"
     api_key = Config["embedding"].get('api_key', '')
     model = Config["embedding"]["model"]              # "bge-m3:567m"
-    provider = Config["embedding"]["provider"]
+
+    if Config["embedding"].get("hosted_vllm", False):
+        provider = "hosted_vllm"
+    else:
+        provider = Config["embedding"]["provider"]
 
     ans = litellm.embedding(
         model, custom_llm_provider=provider,  # bge-m3:567m, ollama
-        api_base=api_base, api_key=api_key,   # "http://127.0.0.1:11434",
+        api_base=api_base, api_key=api_key,   # http://127.0.0.1:11434
         input=content,                        # "hello", ["hello", "world"]
     )
 
@@ -112,7 +116,7 @@ def vectordb_save(doc, vectors, recreate=False):
     if recreate and vectordb_doc_exists(doc_id) :
         QClient.delete(collection_name=collection, points_selector=selector)
 
-    doc["meta"].update({ "collection_name": collection })
+    doc["meta"].update({ "collection": collection })
 
     #print(f"--> {Chrono()} upsert to the vector database")
     points = [

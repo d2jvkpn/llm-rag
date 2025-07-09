@@ -14,14 +14,11 @@ def init_reranker(model_path):
 
     Reranker = CrossEncoder(model_path)
 
-def rerank_texts(query, texts, top_n=0):
-    if top_n == 0:
-        top_n = len(texts)
-
+def rerank_texts(query, texts):
     scores = Reranker.predict([(query, t) for t in texts])
-    output = [t for _, t in sorted(zip(scores, texts), reverse=True)][:top_n]
+    # output = [t for _, t in sorted(zip(scores, texts), reverse=True)][:10]
 
-    return output, True
+    return scores
 
 
 def init_embedding(model_path):
@@ -60,6 +57,6 @@ def init_generator(model_path):
     )
 
 # messages: `str`, `List[str]`, List[Dict[str, str]], or `List[List[Dict[str, str]]]`
-def generator(messages, max_tokens)
+def generator(messages, max_tokens):
     response = Generator(messages, max_new_tokens=max_tokens)
     return response[0]["generated_text"]
