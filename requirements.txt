@@ -1,0 +1,27 @@
+#### tools
+pyyaml
+python-json-logger
+gradio
+
+#### clients
+qdrant-client
+requests
+litellm
+
+#### natural language processing
+sentence-transformers==4.1.0
+torch==2.7.1
+#transformers==4.43
+transformers==4.52
+six==1.17.0
+langchain
+langchain-community
+pypdf
+python-docx
+python-pptx
+
+#### alternatives
+#fastembed
+#pdfminer
+#docx
+#pdfplumber
