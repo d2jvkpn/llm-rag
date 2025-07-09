@@ -104,8 +104,7 @@ def call_llm(messages, selected_model, temperature):
         messages=messages,
     )
 
-    msg = response.choices[0].message
-    return msg
+    return response
 
 
 def rag_docs(files, user_input):
@@ -186,10 +185,15 @@ def chat_func(history, user_input, files,
     # Just a dummy response
     # answer = user_input.upper()
     # reply = { "role": "assistant", "content": f"🤖: {now()}, model={repr(model)}\n{answer}" }
-    reply = call_llm(messages, selected_model, temperature)
+    response = call_llm(messages, selected_model, temperature)
+    message = response.choices[0].message
+    usage = response.usage
+    usage = [usage.prompt_tokens, usage.completion_tokens, usage.total_tokens]
+    tokens = f"prompt={usage[0]}, completion={usage[1]}, total={usage[2]}"
+
     reply = {
-        "role": reply.role,
-        "content": f"🤖: {now()}, selected_model={repr(selected_model)}\n{reply.content}",
+        "role": message.role,
+        "content": f"🤖: {now()}, model={repr(selected_model)}, {tokens}\n{message.content}",
     }
 
     if rag:
@@ -217,8 +221,9 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
     with gr.Row():
         with gr.Column(scale=3):
             system_prompt_input = gr.Textbox(
-                label="System Prompt", value=config['system_prompt'],
-                lines=7, max_lines=7, interactive=True,
+                interactive=True,
+                label="System Prompt", lines=7, max_lines=7,
+                value=config['system_prompt'],
             )
 
             user_prompt_input = gr.Textbox(
@@ -251,9 +256,9 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
             with gr.Row():
                 with gr.Column(scale=9):
                     user_input = gr.Textbox(
-                        show_label=False, label="User input",
+                        show_label=False,
+                        label="User input", lines=4, max_lines=4,
                         placeholder="Type your message here...",
-                        lines=4, max_lines=4,
                     )
 
                 with gr.Column(scale=1, min_width=250):
