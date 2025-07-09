@@ -95,6 +95,7 @@ def embedding_docs(docs):
 def rag_docs(files, user_input):
     doc_ids = []
     top_n = config["qdrant"]["top_n"]
+    top_k = config["rerank"]["top_n"]
 
     if files:
         #file_names = [os.path.basename(v.name) for v in files]
@@ -118,7 +119,7 @@ def rag_docs(files, user_input):
         return ""
 
     texts = [f"- {p.payload['text']}" for p in hits.points]
-    if len(hits.points) <= top_n:
+    if len(hits.points) <= top_k + 3:
         return "\n\n".join(texts)
 
     # TODO: reranker
