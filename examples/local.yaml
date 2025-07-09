@@ -35,7 +35,6 @@ embedding:
 
 qdrant:
   addr: http://ali-s01-sh.lan:6333
-  collection: ollama__bge-m3--567m
   top_n: 10
 
 reranker:

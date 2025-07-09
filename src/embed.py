@@ -6,28 +6,31 @@ os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 from .chrono import Chrono
 from .utils import now
 
-import yaml, requests, litellm
+import requests, litellm # yaml
 from qdrant_client import QdrantClient, models as qmodels
 # TODO: langdetect
 
 
-Config, QClient = {}, None
+QConf, QClient = {}, None
+EmbeddingConfig = {}
 
-def init(filepath): # yaml filepath
-    global Config, QClient
+def init(config): # yaml filepath
+    global QConf, QClient, EmbeddingConf
 
-    with open(filepath, 'r') as f:
-        Config = yaml.safe_load(f)
+    #with open(filepath, 'r') as f:
+    #    Config = yaml.safe_load(f)
+    QConf = config['qdrant']
+    EmbeddingConf = config['embedding']
 
     QClient = QdrantClient(
-        url=Config['qdrant']['addr'], prefer_grpc=True, https=False, timeout=30,
+        url=QConf['addr'], prefer_grpc=True, https=False, timeout=30,
     )
 
 
 def embedding_api(texts: list[str]): # Union[str, list[str]]
-    api_base = Config['embedding']['api_base']     # "http://127.0.0.1:11434/api/embed"
-    api_key = Config['embedding'].get('api_key', '')
-    model = Config['embedding']['model'] # "bge-m3:567m"
+    api_base = EmbeddingConf['api_base']     # "http://127.0.0.1:11434/api/embed"
+    api_key = EmbeddingConf.get('api_key', '')
+    model = EmbeddingConf['model'] # "bge-m3:567m"
 
     headers = { "Content-Type": "application/json", "Authorization": f"Bearer {api_key}" }
     data = { "model": model, "encoding_format": "float", "input": texts }
@@ -42,14 +45,14 @@ def embedding_api(texts: list[str]): # Union[str, list[str]]
 
 
 def litellm_embedding(texts: list[str]): # Union[str, list[str]], "hello", ['hello", "world']
-    api_base = Config['embedding']['api_base']         # "http://127.0.0.1:11434/api/embed"
-    api_key = Config['embedding'].get('api_key', '')
-    model = Config['embedding']['model']               # "bge-m3:567m"
+    api_base = EmbeddingConf['api_base']         # "http://127.0.0.1:11434/api/embed"
+    api_key = EmbeddingConf.get('api_key', '')
+    model = EmbeddingConf['model']               # "bge-m3:567m"
 
-    if Config['embedding'].get("hosted_vllm", False):
+    if EmbeddingConf.get("hosted_vllm", False):
         provider = "hosted_vllm"
     else:
-        provider = Config['embedding']['provider']     # ollama
+        provider = EmbeddingConf['provider']     # ollama
 
 
     batches = [texts[i : i + 10] for i in range(0, len(texts), 10)]
@@ -68,7 +71,7 @@ def litellm_embedding(texts: list[str]): # Union[str, list[str]], "hello", ['hel
 
 
 def vectordb_doc_exists(doc_id):
-    collection = Config['qdrant']['collection']
+    collection = QConf['collection']
 
     if not QClient.collection_exists(collection):
         return False
@@ -83,7 +86,7 @@ def vectordb_doc_exists(doc_id):
 def vectordb_save(doc, vectors, recreate=False):
     assert(len(doc['chunks']) == len(vectors))
     t0 = Chrono()
-    collection = Config['qdrant']['collection']
+    collection = QConf['collection']
     dimension = len(vectors[0])
 
     # print(f"==> {Chrono()} Starting embedding_doc: doc={doc['meta']}")
@@ -142,7 +145,7 @@ def vectordb_save(doc, vectors, recreate=False):
 
 
 def search_doc(vector, doc_ids, top_n=10, score_threshold=0.5):
-    collection = Config['qdrant']['collection']
+    collection = QConf['collection']
 
     #query_filter=qmodels.Filter(
     #    must=[qmodels.FieldCondition(key="category", match=qmodels.MatchValue(value="technology"))],
@@ -195,8 +198,11 @@ def points_to_chunks(points, max_filename_len=64):
 
     for p in points:
         chunk_id = p.payload['chunk_id']
-        filename = os.path.basename(p.payload['path'])[:max_filename_len]
-        text = p.payload['text'].strip()
-        texts.append(f"chunk_id={chunk_id}, {filename}\n```text\n{text}\n```")
+        filename = os.path.basename(p.payload['path'])
+        if len(filename) > max_filename_len:
+            filename = filename[:max_filename_len-3] + "..."
+
+        text = p.payload['text']
+        texts.append(f"chunk_id={chunk_id}, filename={repr(filename)}\n```text\n{text}\n```")
 
     return texts

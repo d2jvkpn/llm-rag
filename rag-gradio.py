@@ -11,6 +11,7 @@ import gradio as gr
 #py = os.path.abspath(os.sys.argv[0])
 #app = os.path.basename(os.path.dirname(py))
 
+
 #### 1. configuration
 parser = argparse.ArgumentParser(
     description="parse commandline arguments",
@@ -19,11 +20,11 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 parser.add_argument("--max_tokens", help="max tokens", type=int, default=1024)
+parser.add_argument("--delete-collection", help="delete collection in qdran", action="store_true")
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
 parser.add_argument("--port", help="http listening port", type=int, default=7860)
 parser.add_argument("--share", help="gradio share", action="store_true")
 parser.add_argument("--debug", help="debug mode", action="store_true")
-parser.add_argument("--delete-collection", help="delete collection in qdran", action="store_true")
 
 args = parser.parse_args()
 if args.debug:
@@ -41,13 +42,13 @@ print(f"--> upload_dir: {config['upload_dir']}")
 embedding_provider = config['embedding']['provider']
 embedding_model = os.path.basename(config['embedding']['model'])
 config['qdrant']['collection'] = f"{embedding_provider}__{embedding_model.replace(':', '--')}"
-print(f"--> collection: {config['qdrant]['collection']}")
+print(f"--> using collection: {config['qdrant']['collection']}")
+
 
 #### 2. setup
 os.makedirs(config['upload_dir'], exist_ok=True)
 
-embed.init(args.config)
-
+embed.init(config)
 if args.delete_collection:
     collection = config['qdrant']['collection']
 
@@ -107,7 +108,7 @@ def rag_docs(files, user_input):
     if len(hits.points) == 0:
         return []
 
-    if not config['reranker']['enabled']:
+    if not config['reranker']['enabled'] or len(hits.points) <= top_k:
         return embed.points_to_chunks(hits.points, 64)
 
     #for p in hits.points:
@@ -124,6 +125,7 @@ def rag_docs(files, user_input):
 
     return embed.points_to_chunks(points, 64)
 
+
 #### 4. biz
 def chat_func(history, user_input, files,
     system_prompt, user_prompt, selected_model, rag, temperature):
@@ -133,7 +135,7 @@ def chat_func(history, user_input, files,
 
     user_input = user_input.strip()
     if user_input == "":
-        return [history, "']
+        return [history, ""]
 
     if rag:
         outputs = rag_docs(files, user_input)
@@ -177,7 +179,7 @@ def chat_func(history, user_input, files,
     history.extend([msg, reply])
     #time.sleep(5)
 
-    return [history, "']
+    return [history, ""]
 
 
 with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
@@ -246,6 +248,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
     #    inputs=[],
     #    outputs=[system_prompt_input, user_prompt_input, files_input, chatbot]
     #)
+
 
 #### 5. run
 webui.launch(share=args.share, server_name=args.host, server_port=args.port)
