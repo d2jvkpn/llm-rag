@@ -34,16 +34,16 @@ if args.debug:
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
 
-config['system_prompt'] = config['system_prompt'].strip()
-config['user_prompt'] = config['user_prompt'].strip()
-
 config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
 config['reranker']['enabled'] = args.reranker
+
+config['llm']['max_tokens'] = args.max_tokens
+config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
+config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
+
 config['http']['share'] = args.share
 config['http']['host'] = args.host
 config['http']['port'] = args.port
-config['llm'] = { 'max_tokens': args.max_tokens }
-
 
 embedding_provider = config['embedding']['provider']
 embedding_model = os.path.basename(config['embedding']['model'])
@@ -111,14 +111,14 @@ def rag_docs(files, user_input):
     top_n = config['qdrant']['top_n']
     top_k = config['reranker']['top_n']
 
-    if files:
-        paths = [v.name for v in files]
-        docs = copy_gradio_files(paths, config['upload_dir'])
-        # print(f"{now()} --> 📎 Uploaded: {docs}")
-        embed.embedding_docs(docs, process_doc.document2chunks)
-        doc_ids = [d['doc_id'] for d in docs]
-    else:
-        return []
+    if not files:
+        return ([], [])
+
+    paths = [v.name for v in files]
+    docs = copy_gradio_files(paths, config['upload_dir'])
+    # print(f"{now()} --> 📎 Uploaded: {docs}")
+    embed.embedding_docs(docs, process_doc.document2chunks)
+    doc_ids = [d['doc_id'] for d in docs]
 
     vector = embed.litellm_embedding([user_input])[0]
     # print(f"{now()} --> rag_docs vector: {vector}")
@@ -126,10 +126,10 @@ def rag_docs(files, user_input):
     print(f"{now()} --> retrieved chunks: {len(hits.points)}")
 
     if len(hits.points) == 0:
-        return []
+        return (docs, [])
 
     if not config['reranker']['enabled'] or len(hits.points) <= top_k:
-        return embed.points_to_chunks(hits.points, 64)
+        return (docs, embed.points_to_chunks(hits.points, 64))
 
     #for p in hits.points:
     #    chunk_id = p.payload['chunk_id']
@@ -143,7 +143,7 @@ def rag_docs(files, user_input):
     scores = local_llms.rerank_texts(user_input, texts)
     points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
 
-    return embed.points_to_chunks(points, 64)
+    return (docs, embed.points_to_chunks(points, 64))
 
 
 #### 4. biz
@@ -159,8 +159,9 @@ def chat_func(history, user_input, files,
     if user_input == "":
         return (history, "")
 
+    docs = []
     if rag:
-        outputs = rag_docs(files, user_input)
+        docs, outputs = rag_docs(files, user_input)
         if len(outputs) > 0:
             # print(f"--> rag outputs: {outputs}")
             texts = [f"#### {i+1}. {v}" for i, v in enumerate(outputs)]
@@ -205,7 +206,6 @@ def chat_func(history, user_input, files,
 
     history.extend([msg, reply])
     #time.sleep(5)
-    print("???", history)
 
     return (history, "")
 
@@ -224,11 +224,11 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
             system_prompt_input = gr.Textbox(
                 interactive=True,
                 label="System Prompt", lines=7, max_lines=7,
-                value=config['system_prompt'],
+                value=config['llm']['system_prompt'],
             )
 
             with gr.Row():
-                gr.Markdown(f"#### Parameters\n{'\n'.join(parameters)}")
+                gr.Markdown(f"Parameters\n{'\n'.join(parameters)}")
                 #gr.ParamViewer(value=param_info)
 
             with gr.Row():
@@ -242,7 +242,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
 
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                value=config['user_prompt'], lines=10, max_lines=10,
+                value=config['llm']['user_prompt'], lines=10, max_lines=10,
             )
 
             files_input = gr.File(

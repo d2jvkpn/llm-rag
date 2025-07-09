@@ -41,17 +41,18 @@ reranker:
   model: data/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2.model
   top_n: 5
 
-system_prompt: |
-  你是公司技术支持团队的 AI 助手，帮助员工快速找到开发文档、产品说明和操作流程中的关键信息。
+llm:
+  system_prompt: |
+    你是公司技术支持团队的 AI 助手，帮助员工快速找到开发文档、产品说明和操作流程中的关键信息。
 
-  回答应简明、准确，并尽可能引用上下文中的术语或内容。
+    回答应准确，并尽可能引用上下文中的术语或内容。
 
-user_prompt: |
-  请根据以下 Input（用户问题）和 Context（提供的资料）进行回答：
+  user_prompt: |
+    请根据以下 Input（用户问题）和 Context（提供的资料）进行回答：
 
-  Input: {input}
+    Input: {input}
 
-  Context:
-  {context}
+    Context:
+    {context}
 
-  回答时请使用简洁明了的语言，你只能基于提供的上下文内容回答问题，如上下文中未包含足够信息，请直接说明“没有找到相关资料”。
+    回答时请使用简洁明了的语言，你只能基于提供的上下文内容回答问题，如上下文中未包含足够信息，请直接说明“没有找到相关资料”。
