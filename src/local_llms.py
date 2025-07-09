@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 
-Reranker, Embedding, Generator, Pretrained = None, None, None, None
+Reranker, Embedding = None, None
+Generator, Pretrained = None, None
 
 
 #### 1. reranker
@@ -69,7 +70,7 @@ def init_pretrained(model_path):
     ├── pytorch_model.bin or model.safetensors
     ├── tokenizer_config.json
     ├── tokenizer.json
-    └── vocab.txt 或 merges.txt / special_tokens_map.json
+    └── vocab.txt or merges.txt / special_tokens_map.json
     """
     from transformers import AutoTokenizer, AutoModelForCausalLM
 

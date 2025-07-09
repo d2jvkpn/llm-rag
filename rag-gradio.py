@@ -153,9 +153,11 @@ def chat_func(history, user_input, files,
     # print(f"--> user_prompt: {user_prompt}")
     # print(f"--> parematers: selected_model={selected_model}, rag={rag}")
 
+    # TODO: how to add extract messages to history
+
     user_input = user_input.strip()
     if user_input == "":
-        return [history, ""]
+        return (history, "")
 
     if rag:
         outputs = rag_docs(files, user_input)
@@ -203,10 +205,9 @@ def chat_func(history, user_input, files,
 
     history.extend([msg, reply])
     #time.sleep(5)
+    print("???", history)
 
-    return [history, ""]
-
-
+    return (history, "")
 
 
 with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
@@ -226,11 +227,6 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
                 value=config['system_prompt'],
             )
 
-            user_prompt_input = gr.Textbox(
-                label="User Prompt for RAG, keep placeholder {input} and {context}",
-                value=config['user_prompt'], lines=10, max_lines=10,
-            )
-
             with gr.Row():
                 gr.Markdown(f"#### Parameters\n{'\n'.join(parameters)}")
                 #gr.ParamViewer(value=param_info)
@@ -238,11 +234,16 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
             with gr.Row():
                 temperature = gr.Slider(
                     label="Temperature",
-                    value=0.7, minimum=0.0, maximum=1.0, step=0.1,
+                    value=0.5, minimum=0.0, maximum=1.5, step=0.1,
                 )
 
                 rag = gr.Checkbox(label="Enable RAG", value=False)
                 #clear_button = gr.Button("Clear", scale=1)
+
+            user_prompt_input = gr.Textbox(
+                label="User Prompt for RAG, keep placeholder {input} and {context}",
+                value=config['user_prompt'], lines=10, max_lines=10,
+            )
 
             files_input = gr.File(
                 label=f"Upload docs for RAG: {', '.join(upload_file_types)}",
@@ -262,7 +263,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
                     )
 
                 with gr.Column(scale=1, min_width=250):
-                    send_button = gr.Button("Send", variant="primary", scale=1)
+                    send_button = gr.Button("Send", variant="primary")
 
                     model_selector = gr.Dropdown(
                         show_label=False, interactive=True, label="Select Model",

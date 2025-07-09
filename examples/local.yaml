@@ -26,12 +26,11 @@ embedding:
   model: bge-m3:567m
   api_base: http://localhost:11434
 
-  alibaba:
-    provider: alibaba
-    model: text-embedding-v4
-    api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
-    api_key: sk-xxxxxxxx
-    hosted_vllm: true
+  # provider: alibaba
+  # model: text-embedding-v4
+  # api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+  # api_key: sk-xxxxxxxx
+  # hosted_vllm: true
 
 qdrant:
   addr: http://ali-s01-sh.lan:6333
@@ -39,7 +38,7 @@ qdrant:
   top_n: 10
 
 reranker:
-  model: data/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2.model
+  model: data/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2.model
   top_n: 5
 
 system_prompt: |
