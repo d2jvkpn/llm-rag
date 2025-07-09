@@ -57,11 +57,11 @@ def copy_gradio_files(paths, dirctory):
             doc['exists'] = True
         else:
             os.makedirs(target_dir, exist_ok=True)
-            print(f"{now()} --> copy_gradio_files: {p} -> {target_path}")
+            print(f"{now()} copy_gradio_files: {p} -> {target_path}")
             shutil.copy(p, target_path)
 
         #if os.path.isdir(source_dir):
-        #    print(f"--> remove duplicated: {p}")
+        #    print(f"{now()} remove duplicated: {p}")
         #    shutil.rmtree(source_dir)
 
         docs.append(doc)

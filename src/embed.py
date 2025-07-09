@@ -129,7 +129,7 @@ def vectordb_save(doc, vectors, recreate=False):
 
     doc['meta'].update({ "collection": collection })
 
-    #print(f"--> {Chrono()} upsert to the vector database")
+    #print(f"{now()} upsert to the vector database")
     points = [
         qmodels.PointStruct(id=str(uuid.uuid4()), vector=vectors[i], payload=doc['chunks'][i])
         for i in range(len(vectors))
@@ -179,17 +179,17 @@ def embedding_docs(docs, document2chunks):
         doc_path = repr(d['path'])
 
         if vectordb_doc_exists(d['doc_id']):
-            print(f"{now()} ---> embedding_docs skip: {doc_path}")
+            print(f"{now()} embedding_docs skip: {doc_path}")
             continue
 
-        print(f"{now()} ---> document2chunks: {d}")
+        print(f"{now()} document2chunks: {d}")
         doc = document2chunks(d['path'], d['doc_id'])
 
         texts = [c['text']for c in doc['chunks']]
-        print(f"{now()} ---> litellm_embedding: chunks={len(texts)}, doc_path={doc_path}")
+        print(f"{now()} litellm_embedding: chunks={len(texts)}, doc_path={doc_path}")
         vectors = litellm_embedding(texts)
 
-        print(f"{now()} ---> vectordb_save: chunks={len(texts)}, doc_path={doc_path}")
+        print(f"{now()} vectordb_save: chunks={len(texts)}, doc_path={doc_path}")
         vectordb_save(doc, vectors, recreate=False)
 
 

@@ -35,6 +35,7 @@ if args.debug:
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
 
+
 ##### dynamic parameters
 config['llm']['temperature'] = 0.5
 config['llm']['max_tokens'] = 1024
@@ -45,8 +46,8 @@ config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
 config['rag'] = { "enabled": False }
 
-#### static parameters
 
+#### static parameters
 config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
 config['reranker']['enabled'] = args.reranker
 
@@ -102,7 +103,7 @@ if config['reranker']['enabled']:
 def call_llm(messages, parameters):
     provider, model = parameters['llm']['selected_model'].split("/", 1)
     temperature = parameters['llm']['temperature']
-    print(f"{now()} --> call_llm: provider={provider}, model={model}, temperature={temperature}")
+    print(f"{now()} call_llm: provider={provider}, model={model}, temperature={temperature}")
 
     found = next(
         (v for v in config['llm_models'] if v['provider'] == provider and v['model'] == model),
@@ -133,14 +134,14 @@ def rag_query_docs(files, user_input):
 
     paths = [v.name for v in files]
     docs = copy_gradio_files(paths, config['upload_dir'])
-    # print(f"{now()} --> 📎 Uploaded: {docs}")
+    # print(f"{now()} 📎 Uploaded: {docs}")
     embed.embedding_docs(docs, process_doc.document2chunks)
     doc_ids = [d['doc_id'] for d in docs]
 
     vector = embed.litellm_embedding([user_input])[0]
-    # print(f"{now()} --> rag_query_docs vector: {vector}")
+    # print(f"{now()} rag_query_docs vector: {vector}")
     hits = embed.search_doc(vector, doc_ids, top_n=top_n)
-    print(f"{now()} --> retrieved chunks: {len(hits.points)}")
+    print(f"{now()} search_doc: {len(hits.points)}")
 
     if len(hits.points) == 0:
         return (docs, [])
@@ -152,11 +153,11 @@ def rag_query_docs(files, user_input):
     #    chunk_id = p.payload['chunk_id']
     #    page = p.payload['page']
     #    path = p.payload['path']
-    #    print(f"--> hits: chunk_id={chunk_id}, page={page}, path={path}")
+    #    print(f"<-- hits: chunk_id={chunk_id}, page={page}, path={path}")
     #    #print(f"    text: {p.payload['text']}")
 
     texts = [p.payload['text'] for p in hits.points]
-    print(f"{now()} --> rerank_texts: {top_k}")
+    print(f"{now()} rerank_texts: {top_k}")
     scores = local_llms.rerank_texts(user_input, texts)
     points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
 
@@ -171,7 +172,7 @@ def rag_user_input(parameters, files, user_input):
     if len(rag_outputs) == 0:
         return (docs_files, [], user_input)
 
-    # print(f"--> rag outputs: {rag_outputs}")
+    # print(f"<-- rag outputs: {rag_outputs}")
     texts = [f"#### {i+1}. {v}" for i, v in enumerate(rag_outputs)]
 
     user_prompt = parameters['llm']['user_prompt']
@@ -181,9 +182,9 @@ def rag_user_input(parameters, files, user_input):
 
 #### 4. biz
 def chat_func(history, user_input, files, system_prompt, user_prompt):
-    # print(f"--> system_prompt: {system_prompt}")
-    # print(f"--> user_prompt: {user_prompt}")
-    # print(f"--> parematers: selected_model={selected_model}, rag={rag}")
+    # print(f"<-- system_prompt: {system_prompt}")
+    # print(f"<-- user_prompt: {user_prompt}")
+    # print(f"<-- parematers: selected_model={selected_model}, rag={rag}")
 
     # TODO: how to add extract messages to history
     parameters = {
@@ -214,7 +215,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
 
     msg = { "role": "user", "content": user_input }
     messages.append(msg)
-    # print(f"--> messages: {messages}")
+    # print(f"<-- messages: {messages}")
 
     # Just a dummy response
     # answer = user_input.upper()
@@ -249,23 +250,23 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
 
 
 def update_rag(key, value):
-    print(f"--> update_rag {key}: {value}")
+    print(f"<-- update_rag {key}: {value}")
     config['rag'][key] = value
 
 def update_llm(key, value):
-    print(f"--> update_llm {key}: {value}")
+    print(f"<-- update_llm {key}: {value}")
     config['llm'][key] = value
 
 def update_llm_min(key, value, min_val=None):
     if min_val and value < min_val:
         value = min_val
 
-    print(f"--> update_llm_min {key}: {value}")
+    print(f"<-- update_llm_min {key}: {value}")
     config['llm'][key] = value
 
 # deprecated
 def update_llm_textbox(key, value):
-    #print(f"--> update_llm {key}: {value}")
+    #print(f"<-- update_llm {key}: {value}")
     config['llm'][key] = value
     return value
 
