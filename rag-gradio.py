@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, argparse, re # time, shutil
+import os, argparse, re, json # time, shutil
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import process_doc, embed, local_llms
@@ -49,15 +49,27 @@ embedding_provider = config['embedding']['provider']
 embedding_model = os.path.basename(config['embedding']['model'])
 config['qdrant']['collection'] = f"{embedding_provider}__{embedding_model.replace(':', '--')}"
 
-def kv_pairs(sub, keys):
-    return ', '.join([f"{k}={config[sub][k]}" for k in keys])
+def get_parameters():
+    d = config['llm']
+    _llm = { "max_tokens": d['max_tokens'] }
 
-parameters = [
-    f"- llm: {kv_pairs('llm', ['max_tokens'])}",
-    f"- embedding: {kv_pairs('embedding', ['provider'])}, model={embedding_model}",
-    f"- vector_db: {kv_pairs('qdrant', ['collection', 'top_n'])}",
-    f"- reranker: {kv_pairs('reranker', ['enabled', 'top_n'])}",
-]
+    _embedding = { "provider": embedding_provider, "model": embedding_model }
+
+    d = config['qdrant']
+    _vector_db = { "collection": d['collection'], "top_n": d['top_n'] }
+
+    d = config['reranker']
+    _reranker = { "enabled": d['enabled'], "top_n": d['top_n'] }
+
+    strs = [
+        f"- llm: {json.dumps(_llm)}",
+        f"- embedding: {json.dumps(_embedding)}",
+        f"- vector_db: {json.dumps(_vector_db)}",
+        f"- reranker: {json.dumps(_reranker)}",
+    ]
+
+    return "\n".join(strs)
+
 
 #### 2. setup
 print(f"==> args: {args}")
@@ -193,6 +205,7 @@ def chat_func(history, user_input, files,
     usage = response.usage
     usage = [usage.prompt_tokens, usage.completion_tokens, usage.total_tokens]
     tokens = f"prompt={usage[0]}, completion={usage[1]}, total={usage[2]}"
+    print(f"{now()} --> llm_tokens: {tokens}")
 
     reply = {
         "role": message.role,
@@ -228,7 +241,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
             )
 
             with gr.Row():
-                gr.Markdown(f"Parameters\n{'\n'.join(parameters)}")
+                gr.Markdown(f"Parameters\n{get_parameters()}")
                 #gr.ParamViewer(value=param_info)
 
             with gr.Row():
