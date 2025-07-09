@@ -39,10 +39,12 @@ with open(args.config, 'r') as f:
 config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
 
 config['llm']['max_tokens'] = args.max_tokens
+config['llm']['temperature'] = 0.5
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
 config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
 config['reranker']['enabled'] = args.reranker
+config['rag'] = { "enabled": False }
 
 config['http']['share'] = args.share
 config['http']['host'] = args.host
@@ -161,8 +163,7 @@ def rag_docs(files, user_input):
 
 
 #### 4. biz
-def chat_func(history, user_input, files,
-    system_prompt, user_prompt, selected_model, rag, temperature):
+def chat_func(history, user_input, files, system_prompt, user_prompt, selected_model):
     # print(f"--> system_prompt: {system_prompt}")
     # print(f"--> user_prompt: {user_prompt}")
     # print(f"--> parematers: selected_model={selected_model}, rag={rag}")
@@ -170,15 +171,16 @@ def chat_func(history, user_input, files,
     # TODO: how to add extract messages to history
 
     user_input = user_input.strip()
+    temperature = config['llm']['temperature']
     if user_input == "":
         return (history, "")
 
-    docs = []
-    if rag:
-        docs, outputs = rag_docs(files, user_input)
-        if len(outputs) > 0:
-            # print(f"--> rag outputs: {outputs}")
-            texts = [f"#### {i+1}. {v}" for i, v in enumerate(outputs)]
+    docs, rag_outputs = [], []
+    if config['rag']['enabled']:
+        docs, rag_outputs = rag_docs(files, user_input)
+        if len(rag_outputs) > 0:
+            # print(f"--> rag outputs: {rag_outputs}")
+            texts = [f"#### {i+1}. {v}" for i, v in enumerate(rag_outputs)]
             context = "\n\n".join(texts)
             user_input = f"{user_prompt}".format(input=user_input, context=context)
 
@@ -214,8 +216,10 @@ def chat_func(history, user_input, files,
         "content": f"🤖: {now()}, model={repr(selected_model)}, {tokens}\n{ans.content}",
     }
 
-    if rag:
-        msg['content'] = f"📚: {now()}, temperature={temperature}\n{msg['content']}"
+    if config['rag']['enabled']:
+        msg['content'] = "📚: {}, temperature={}, matches={}\n{}".format(
+            now(), temperature, len(rag_outputs), msg['content'],
+        )
     else:
         msg['content'] = f"🧑: {now()}, temperature={temperature}\n{msg['content']}"
 
@@ -247,12 +251,12 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
                 #gr.ParamViewer(value=param_info)
 
             with gr.Row():
-                temperature = gr.Slider(
+                temperature_slider = gr.Slider(
                     label="Temperature",
-                    value=0.5, minimum=0.0, maximum=1.5, step=0.1,
+                    value=config['llm']['temperature'], minimum=0.0, maximum=1.5, step=0.1,
                 )
 
-                rag = gr.Checkbox(label="RAG", value=False)
+                rag_checkbox = gr.Checkbox(label="RAG", value=config['rag']['enabled'])
                 #clear_button = gr.Button("Clear", scale=1)
 
             user_prompt_input = gr.Textbox(
@@ -285,15 +289,29 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
                         value=model_choices[0], choices=model_choices,
                     )
 
+    def update_rag(checked):
+        print(f"--> rag_checkbox: {checked}")
+        config['rag']['enabled'] = checked
+
+    rag_checkbox.change(fn=update_rag, inputs=rag_checkbox, outputs=None)
+
+
+    def update_temperature(value):
+        print(f"--> temperature_slider: {value}")
+        config['llm']['temperature'] = value
+
+    temperature_slider.change(fn=update_temperature, inputs=temperature_slider, outputs=None)
+
+
     inputs=[
-        chatbot, user_input, files_input, system_prompt_input, user_prompt_input,
-        model_selector, rag, temperature,
+        chatbot, user_input, files_input, system_prompt_input, user_prompt_input, model_selector,
     ]
 
     outputs=[chatbot, user_input]
 
     send_button.click(fn=chat_func, inputs=inputs, outputs=outputs) # Submit message
     user_input.submit(fn=chat_func, inputs=inputs, outputs=outputs) # Allow pressing enter
+
 
     # Clear inputs
     #clear_button.click(
