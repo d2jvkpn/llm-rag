@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 parser.add_argument("--max_tokens", help="max tokens", type=int, default=1024)
+parser.add_argument("--reranker", help="enable reranker", action="store_true")
 parser.add_argument("--delete-collection", help="delete collection in qdran", action="store_true")
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
 parser.add_argument("--port", help="http listening port", type=int, default=7860)
@@ -37,18 +38,37 @@ config['system_prompt'] = config['system_prompt'].strip()
 config['user_prompt'] = config['user_prompt'].strip()
 
 config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
-print(f"--> upload_dir: {config['upload_dir']}")
+config['reranker']['enabled'] = args.reranker
+config['http']['share'] = args.share
+config['http']['host'] = args.host
+config['http']['port'] = args.port
+config['llm'] = { 'max_tokens': args.max_tokens }
+
 
 embedding_provider = config['embedding']['provider']
 embedding_model = os.path.basename(config['embedding']['model'])
 config['qdrant']['collection'] = f"{embedding_provider}__{embedding_model.replace(':', '--')}"
-print(f"--> using collection: {config['qdrant']['collection']}")
 
+def kv_pairs(sub, keys):
+    return ', '.join([f"{k}={config[sub][k]}" for k in keys])
+
+parameters = [
+    f"- llm: {kv_pairs('llm', ['max_tokens'])}",
+    f"- embedding: {kv_pairs('embedding', ['provider'])}, model={embedding_model}",
+    f"- vector_db: {kv_pairs('qdrant', ['collection', 'top_n'])}",
+    f"- reranker: {kv_pairs('reranker', ['enabled', 'top_n'])}",
+]
 
 #### 2. setup
+print(f"==> args: {args}")
+
 os.makedirs(config['upload_dir'], exist_ok=True)
+print(f"--> upload_dir: {config['upload_dir']}")
+
 
 embed.init(config)
+print(f"--> using collection: {config['qdrant']['collection']}")
+
 if args.delete_collection:
     collection = config['qdrant']['collection']
 
@@ -56,8 +76,9 @@ if args.delete_collection:
         print(f"--> deleting collection: {collection=}")
         embed.QClient.delete_collection(collection)
 
+
 if config['reranker']['enabled']:
-    print("--> local_llms.init_reranker:", config['reranker']['model'])
+    print("--> init_reranker:", config['reranker']['model'])
     local_llms.init_reranker(config['reranker']['model'])
 
 
@@ -77,7 +98,7 @@ def call_llm(messages, selected_model, temperature):
     response = litellm.completion(
         custom_llm_provider=provider, model=model,
         api_base=found.get("api_base"), api_key=found.get("api_key"),
-        max_tokens=args.max_tokens,
+        max_tokens=config['llm']['max_tokens'],
         temperature=temperature,
         num_retries=3, timeout=60, stream=False,
         messages=messages,
@@ -182,55 +203,66 @@ def chat_func(history, user_input, files,
     return [history, ""]
 
 
+
+
 with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
     upload_file_types = config['http']['upload_file_types']
     model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
 
+    #param_info = {
+    #    "temperature": {"type": "float", "description": "Creativity level", "default": 0.7},
+    #    "max_tokens": {"type": "int", "description": "Max tokens in response", "default": 256}
+    #}
+
     with gr.Row():
-        with gr.Column(scale=1):
+        with gr.Column(scale=3):
             system_prompt_input = gr.Textbox(
                 label="System Prompt", value=config['system_prompt'],
-                lines=8, max_lines=8, interactive=True,
+                lines=7, max_lines=7, interactive=True,
             )
 
-        with gr.Column(scale=1):
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                value=config['user_prompt'],
-                lines=8, max_lines=8,
+                value=config['user_prompt'], lines=10, max_lines=10,
             )
 
-        with gr.Column(scale=1):
+            with gr.Row():
+                gr.Markdown(f"#### Parameters\n{'\n'.join(parameters)}")
+                #gr.ParamViewer(value=param_info)
+
+            with gr.Row():
+                temperature = gr.Slider(
+                    label="Temperature",
+                    value=0.7, minimum=0.0, maximum=1.0, step=0.1,
+                )
+
+                rag = gr.Checkbox(label="Enable RAG", value=False)
+                #clear_button = gr.Button("Clear", scale=1)
+
             files_input = gr.File(
                 label=f"Upload docs for RAG: {', '.join(upload_file_types)}",
                 file_types=upload_file_types, file_count="multiple",
             )
 
-    chatbot = gr.Chatbot(label="AI Assistant", type='messages', height=500)
 
-    with gr.Row():
-        with gr.Column(scale=12):
-            user_input = gr.Textbox(
-                show_label=False, label="User input", placeholder="Type your message here...",
-                lines=4, max_lines=4,
-            )
+        with gr.Column(scale=7):
+            chatbot = gr.Chatbot(label="AI Assistant", type='messages', height=1000)
 
-        with gr.Column(scale=1, min_width=250):
-            temperature = gr.Slider(
-                label="Temperature",
-                value=0.7, minimum=0.0, maximum=1.0, step=0.1,
-            )
+            with gr.Row():
+                with gr.Column(scale=9):
+                    user_input = gr.Textbox(
+                        show_label=False, label="User input",
+                        placeholder="Type your message here...",
+                        lines=4, max_lines=4,
+                    )
 
-            rag = gr.Checkbox(label="Enable RAG", value=False)
-            #clear_button = gr.Button("Clear", scale=1)
+                with gr.Column(scale=1, min_width=250):
+                    send_button = gr.Button("Send", variant="primary", scale=1)
 
-        with gr.Column(scale=1, min_width=250):
-            send_button = gr.Button("Send", variant="primary", scale=1)
-
-            model_selector = gr.Dropdown(
-                show_label=False, interactive=True, label="Select Model",
-                value=model_choices[0], choices=model_choices,
-            )
+                    model_selector = gr.Dropdown(
+                        show_label=False, interactive=True, label="Select Model",
+                        value=model_choices[0], choices=model_choices,
+                    )
 
     inputs=[
         chatbot, user_input, files_input, system_prompt_input, user_prompt_input,
@@ -251,4 +283,8 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
 
 
 #### 5. run
-webui.launch(share=args.share, server_name=args.host, server_port=args.port)
+webui.launch(
+    share=config['http']['share'],
+    server_name=config['http']['host'],
+    server_port=config['http']['port'],
+)
