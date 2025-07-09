@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, argparse, re, json # time, shutil
+import os, argparse, re, json, copy # time, shutil
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import process_doc, embed, local_llms
@@ -36,15 +36,19 @@ if args.debug:
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
 
-config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
-
-config['llm']['max_tokens'] = args.max_tokens
+##### dynamic
 config['llm']['temperature'] = 0.5
+config['llm']['model_choices'] = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
+config['llm']['selected_model'] = config['llm']['model_choices'][0]
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
 config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
-config['reranker']['enabled'] = args.reranker
 config['rag'] = { "enabled": False }
+
+#### static
+config['llm']['max_tokens'] = args.max_tokens
+config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
+config['reranker']['enabled'] = args.reranker
 
 config['http']['share'] = args.share
 config['http']['host'] = args.host
@@ -53,7 +57,7 @@ config['http']['port'] = args.port
 _model = os.path.basename(config['embedding']['model']).replace(':', '--')
 config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
-def get_parameters():
+def static_parameters():
     d = config['llm']
     llm = { "max_tokens": d['max_tokens'] }
 
@@ -99,8 +103,9 @@ if config['reranker']['enabled']:
 
 
 #### 3. functions
-def call_llm(messages, selected_model, temperature):
-    provider, model = selected_model.split("/", 1)
+def call_llm(messages, parameters):
+    provider, model = parameters['llm']['selected_model'].split("/", 1)
+    temperature = parameters['llm']['temperature']
     print(f"{now()} --> call_llm: provider={provider}, model={model}, temperature={temperature}")
 
     found = next(
@@ -114,7 +119,7 @@ def call_llm(messages, selected_model, temperature):
     response = litellm.completion(
         custom_llm_provider=provider, model=model,
         api_base=found.get("api_base"), api_key=found.get("api_key"),
-        max_tokens=config['llm']['max_tokens'],
+        max_tokens=parameters['llm']['max_tokens'],
         temperature=temperature,
         num_retries=3, timeout=60, stream=False,
         messages=messages,
@@ -123,7 +128,7 @@ def call_llm(messages, selected_model, temperature):
     return response
 
 
-def rag_docs(files, user_input):
+def rag_query_docs(files, user_input):
     top_n = config['qdrant']['top_n']
     top_k = config['reranker']['top_n']
 
@@ -137,7 +142,7 @@ def rag_docs(files, user_input):
     doc_ids = [d['doc_id'] for d in docs]
 
     vector = embed.litellm_embedding([user_input])[0]
-    # print(f"{now()} --> rag_docs vector: {vector}")
+    # print(f"{now()} --> rag_query_docs vector: {vector}")
     hits = embed.search_doc(vector, doc_ids, top_n=top_n)
     print(f"{now()} --> retrieved chunks: {len(hits.points)}")
 
@@ -162,29 +167,43 @@ def rag_docs(files, user_input):
     return (docs, embed.points_to_chunks(points, 64))
 
 
+def rag_user_input(parameters, files, user_input):
+    if not parameters['rag']['enabled'] or not files:
+        return ([], [], user_input)
+
+    docs_files, rag_outputs = rag_query_docs(files, user_input)
+    if len(rag_outputs) == 0:
+        return (docs_files, [], user_input)
+
+    # print(f"--> rag outputs: {rag_outputs}")
+    texts = [f"#### {i+1}. {v}" for i, v in enumerate(rag_outputs)]
+
+    user_prompt = parameters['llm']['user_prompt']
+    user_input = f"{user_prompt}".format(input=user_input, context="\n\n".join(texts))
+
+    return (docs_files, rag_outputs, user_input)
+
 #### 4. biz
-def chat_func(history, user_input, files, system_prompt, user_prompt, selected_model):
+def chat_func(history, user_input, files, system_prompt, user_prompt):
     # print(f"--> system_prompt: {system_prompt}")
     # print(f"--> user_prompt: {user_prompt}")
     # print(f"--> parematers: selected_model={selected_model}, rag={rag}")
 
     # TODO: how to add extract messages to history
+    parameters = {
+        "llm": copy.deepcopy(config['llm']),
+        "rag": copy.deepcopy(config['rag']),
+    }
+    parameters['llm']['system_prompt'] = system_prompt
+    parameters['llm']['user_prompt'] = user_prompt
 
     user_input = user_input.strip()
-    temperature = config['llm']['temperature']
     if user_input == "":
         return (history, "")
 
-    docs, rag_outputs = [], []
-    if config['rag']['enabled']:
-        docs, rag_outputs = rag_docs(files, user_input)
-        if len(rag_outputs) > 0:
-            # print(f"--> rag outputs: {rag_outputs}")
-            texts = [f"#### {i+1}. {v}" for i, v in enumerate(rag_outputs)]
-            context = "\n\n".join(texts)
-            user_input = f"{user_prompt}".format(input=user_input, context=context)
+    docs_files, rag_outputs, user_input = rag_user_input(parameters, files, user_input)
 
-    messages = [{"role": "system", "content": system_prompt}]
+    messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
 
     for m in (history[-5:] if len(history) > 5 else history):
         # extract user_input only for rag message
@@ -204,24 +223,28 @@ def chat_func(history, user_input, files, system_prompt, user_prompt, selected_m
     # Just a dummy response
     # answer = user_input.upper()
     # reply = { "role": "assistant", "content": f"🤖: {now()}, model={repr(model)}\n{answer}" }
-    response = call_llm(messages, selected_model, temperature)
+    response = call_llm(messages, parameters)
     ans = response.choices[0].message
     usage = response.usage
     usage = [usage.prompt_tokens, usage.completion_tokens, usage.total_tokens]
-    tokens = f"prompt={usage[0]}, completion={usage[1]}, total={usage[2]}"
-    print(f"{now()} --> llm_tokens: {tokens}")
 
     reply = {
         "role": ans.role,
-        "content": f"🤖: {now()}, model={repr(selected_model)}, {tokens}\n{ans.content}",
+        "content": "🤖: {}, model={}, {}\n{}".format(
+            now(), repr(parameters['llm']['selected_model']), 
+            f"prompt={usage[0]}, completion={usage[1]}, total={usage[2]}",
+            ans.content,
+        ),
     }
 
-    if config['rag']['enabled']:
+    if parameters['rag']['enabled']:
         msg['content'] = "📚: {}, temperature={}, matches={}\n{}".format(
-            now(), temperature, len(rag_outputs), msg['content'],
+            now(), parameters['llm']['temperature'], len(rag_outputs), msg['content'],
         )
     else:
-        msg['content'] = f"🧑: {now()}, temperature={temperature}\n{msg['content']}"
+        msg['content'] = "🧑: {}, temperature={}\n{}".format(
+            now(), parameters['llm']['temperature'], msg['content'],
+        )
 
     history.extend([msg, reply])
     #time.sleep(5)
@@ -229,9 +252,23 @@ def chat_func(history, user_input, files, system_prompt, user_prompt, selected_m
     return (history, "")
 
 
+def update_rag(key, value):
+    print(f"--> update_rag {key}: {value}")
+    config['rag'][key] = value
+
+def update_llm(key, value):
+    print(f"--> update_llm {key}: {value}")
+    config['llm'][key] = value
+
+# deprecated
+def update_llm_textbox(key, value):
+    #print(f"--> update_llm {key}: {value}")
+    config['llm'][key] = value
+    return value
+
+#### 5. run
 with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
     upload_file_types = config['http']['upload_file_types']
-    model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
 
     #param_info = {
     #    "temperature": {"type": "float", "description": "Creativity level", "default": 0.7},
@@ -247,7 +284,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
             )
 
             with gr.Row():
-                gr.Markdown(get_parameters())
+                gr.Markdown(static_parameters())
                 #gr.ParamViewer(value=param_info)
 
             with gr.Row():
@@ -286,32 +323,38 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
 
                     model_selector = gr.Dropdown(
                         show_label=False, interactive=True, label="Select Model",
-                        value=model_choices[0], choices=model_choices,
+                        value=config['llm']['selected_model'],
+                        choices=config['llm']['model_choices'],
                     )
 
-    def update_rag(checked):
-        print(f"--> rag_checkbox: {checked}")
-        config['rag']['enabled'] = checked
+    rag_checkbox.change(
+        fn=lambda value: update_rag("enabled", value),
+        inputs=rag_checkbox, outputs=None,
+    )
 
-    rag_checkbox.change(fn=update_rag, inputs=rag_checkbox, outputs=None)
+    #system_prompt_input.change(
+    #    fn=lambda value: update_llm_textbox("system_prompt", value),
+    #    inputs=system_prompt_input, outputs=system_prompt_input,
+    #)
 
+    temperature_slider.change(
+        fn=lambda value: update_llm("temperature", value),
+        inputs=temperature_slider, outputs=None,
+    )
 
-    def update_temperature(value):
-        print(f"--> temperature_slider: {value}")
-        config['llm']['temperature'] = value
+    model_selector.change(
+        fn=lambda value: update_llm("selected_model", value),
+        inputs=model_selector, outputs=None,
+    )
 
-    temperature_slider.change(fn=update_temperature, inputs=temperature_slider, outputs=None)
+    ####
+    inputs = [chatbot, user_input, files_input, system_prompt_input, user_prompt_input]
 
+    # Submit message
+    send_button.click(fn=chat_func, inputs=inputs, outputs=[chatbot, user_input])
 
-    inputs=[
-        chatbot, user_input, files_input, system_prompt_input, user_prompt_input, model_selector,
-    ]
-
-    outputs=[chatbot, user_input]
-
-    send_button.click(fn=chat_func, inputs=inputs, outputs=outputs) # Submit message
-    user_input.submit(fn=chat_func, inputs=inputs, outputs=outputs) # Allow pressing enter
-
+    # Allow pressing enter
+    user_input.submit(fn=chat_func, inputs=inputs, outputs=[chatbot, user_input])
 
     # Clear inputs
     #clear_button.click(
@@ -320,8 +363,6 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
     #    outputs=[system_prompt_input, user_prompt_input, files_input, chatbot]
     #)
 
-
-#### 5. run
 webui.launch(
     share=config['http']['share'],
     server_name=config['http']['host'],
