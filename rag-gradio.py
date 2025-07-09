@@ -175,7 +175,7 @@ def chat_func(history, user_input, files,
     return [history, ""]
 
 
-with gr.Blocks(title=args.app) as view:
+with gr.Blocks(title=args.app) as webui:
     upload_file_types = config['http']['upload_file_types']
     model_choices = [f"{v['provider']}/{v['model']}" for v in config["llm_models"]]
 
@@ -246,4 +246,4 @@ with gr.Blocks(title=args.app) as view:
     #    outputs=[system_prompt_input, user_prompt_input, files_input, chatbot]
     #)
 
-view.launch(share=args.share, server_name=args.host, server_port=args.port)
+webui.launch(share=args.share, server_name=args.host, server_port=args.port)
