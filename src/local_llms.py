@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-import os, uuid
 from typing import Union
-
-import yaml
 
 
 Reranker, Embedding, Generator = None, None, None
@@ -25,14 +22,14 @@ def init_embedding(model_path):
     import torch
     from sentence_transformers import SentenceTransformer
 
-    global Embedding, Dimension
+    global Embedding
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     Embedding = SentenceTransformer(model_path)
     Embedding = Embedding.to(device)  # model.half()  # float16
     # dimension = Embedding.get_sentence_embedding_dimension()
 
-def embeddding(content):
+def embeddding(content: Union[str, list[str]]):
     vector = Embedding.encode(
         content,
         #  prompt="Represent this sentence for searching relevant passages: ",

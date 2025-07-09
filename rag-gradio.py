@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import os, argparse, time, re, shutil
+import os, argparse, re # time, shutil
 os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
 
-from src import process_doc, embed, llms
-from src.utils import now, file_md5, move_gradio_files
+from src import process_doc, embed, local_llms
+from src.utils import now, copy_gradio_files
 
 import yaml, litellm
 import gradio as gr
@@ -11,6 +11,7 @@ import gradio as gr
 #py = os.path.abspath(os.sys.argv[0])
 #app = os.path.basename(os.path.dirname(py))
 
+#### 1. configuration and setup
 parser = argparse.ArgumentParser(
     description="parse commandline arguments",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -35,8 +36,8 @@ with open(args.config, 'r') as f:
 config["system_prompt"] = config["system_prompt"].strip()
 config["user_prompt"] = config["user_prompt"].strip()
 
-UPLOAD_DIR = os.path.join("data", args.app.replace(" ", "-"))
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+config["upload_dir"] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
+os.makedirs(config["upload_dir"], exist_ok=True)
 
 embed.init(args.config)
 if args.delete_collection:
@@ -48,10 +49,11 @@ if args.delete_collection:
 
 
 if config["reranker"]["enabled"]:
-    print("--> llms.init_reranker:", config["reranker"]["model"])
-    llms.init_reranker(config["reranker"]["model"])
+    print("--> local_llms.init_reranker:", config["reranker"]["model"])
+    local_llms.init_reranker(config["reranker"]["model"])
 
 
+#### 2. functions
 def call_llm(messages, selected_model, temperature):
     provider, model = selected_model.split("/", 1)
     print(f"{now()} --> call_llm: provider={provider}, model={model}, temperature={temperature}")
@@ -77,50 +79,17 @@ def call_llm(messages, selected_model, temperature):
     return msg
 
 
-def embedding_docs(docs):
-    for d in docs:
-        doc_id = "md5-" + d["md5"]
-        doc_path = repr(d["path"])
-
-        if embed.vectordb_doc_exists(doc_id):
-            print(f"{now()} ---> embedding_docs skip: {doc_path}")
-            continue
-
-        print(f"{now()} ---> document2chunks: {d}")
-        doc = process_doc.document2chunks(d["path"], doc_id)
-
-        texts = [c["text"]for c in doc["chunks"]]
-        print(f"{now()} ---> litellm_embedding: chunks={len(texts)}, doc_path={doc_path}")
-        vectors = embed.litellm_embedding(texts)
-
-        print(f"{now()} ---> vectordb_save: chunks={len(texts)}, doc_path={doc_path}")
-        embed.vectordb_save(doc, vectors, recreate=False)
-
-
-def points_to_chunks(points):
-    texts = []
-
-    for p in points:
-        chunk_id = p.payload['chunk_id']
-        filename = os.path.basename(p.payload['path'])[:32]
-        text = p.payload['text'].strip()
-        texts.append(f"chunk_id={chunk_id}, {filename}\n```text\n{text}\n```")
-
-    return texts
-
 def rag_docs(files, user_input):
-    doc_ids = []
     top_n = config["qdrant"]["top_n"]
     top_k = config["reranker"]["top_n"]
 
     if files:
-        #file_names = [os.path.basename(v.name) for v in files]
-        docs = move_gradio_files(files, UPLOAD_DIR)
+        paths = [v.name for v in files]
+        docs = copy_gradio_files(paths, config["upload_dir"])
         # print(f"{now()} --> 📎 Uploaded: {docs}")
-        embedding_docs(docs)
-        doc_ids = ["md5-" + d["md5"] for d in docs]
-
-    if len(doc_ids) == 0:
+        embed.embedding_docs(docs, process_doc.document2chunks)
+        doc_ids = [d["doc_id"] for d in docs]
+    else:
         return []
 
     vector = embed.litellm_embedding(user_input)
@@ -132,7 +101,7 @@ def rag_docs(files, user_input):
         return []
 
     if not config["reranker"]["enabled"]:
-        return points_to_chunks(hits.points)
+        return embed.points_to_chunks(hits.points, 64)
 
     #for p in hits.points:
     #    chunk_id = p.payload['chunk_id']
@@ -143,11 +112,12 @@ def rag_docs(files, user_input):
 
     texts = [p.payload['text'] for p in hits.points]
     print(f"{now()} --> rerank_texts: {top_k}")
-    scores = llms.rerank_texts(user_input, texts)
+    scores = local_llms.rerank_texts(user_input, texts)
     points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
 
-    return points_to_chunks(points)
+    return embed.points_to_chunks(points, 64)
 
+#### 3. biz
 def chat_func(history, user_input, files,
     system_prompt, user_prompt, selected_model, rag, temperature):
     # print(f"--> system_prompt: {system_prompt}")
@@ -188,7 +158,6 @@ def chat_func(history, user_input, files,
     # Just a dummy response
     # answer = user_input.upper()
     # reply = { "role": "assistant", "content": f"🤖: {now()}, model={repr(model)}\n{answer}" }
-
     reply = call_llm(messages, selected_model, temperature)
     reply = {
         "role": reply.role,

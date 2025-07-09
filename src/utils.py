@@ -8,6 +8,7 @@ def now():
     # return f"{at}".replace(" ", "T")
     return at.strftime("%Y-%m-%dT%H:%M:%S%z")
 
+
 def file_md5(file_path):
     #with open(filepath, 'rb') as f:
     #    content = f.read()
@@ -22,29 +23,28 @@ def file_md5(file_path):
     return hash_md5.hexdigest()
 
 
-def move_gradio_files(files, dirctory):
+def copy_gradio_files(paths, dirctory):
     docs = []
 
-    for file in files:
-        print(f"{now()} --> process_uploaded_files: {file}")
-        filename = os.path.basename(file.name)
-        source_dir = os.path.dirname(file.name)
-        md5 = file_md5(file.name)
-        #target_dir = os.path.join(dirctory, os.path.basename(file_dir))
-        target_dir = os.path.join(dirctory, "md5-" + md5)
+    for p in paths:
+        filename = os.path.basename(p)
+        doc_id = "md5-" + file_md5(p)
+        #source_dir = os.path.dirname(p)
+        #target_dir = os.path.join(dirctory, os.path.basename(source_dir))
+        target_dir = os.path.join(dirctory, doc_id)
         target_path = os.path.join(target_dir, filename)
-        # shutil.copy(file.name, save_path)
-        doc = { "path": target_path, "md5": md5, "exists": True}
+        # shutil.copy(p, save_path)
+        doc = { "path": target_path, "doc_id": doc_id, "exists": False }
 
         if os.path.exists(target_path) and os.path.isfile(target_path):
-            doc["exists"] = False
+            doc["exists"] = True
         else:
             os.makedirs(target_dir, exist_ok=True)
-            print(f"--> copy file: {file.name} -> {target_path}")
-            shutil.copy(file.name, target_path)
+            print(f"{now()} --> copy_gradio_files: {p} -> {target_path}")
+            shutil.copy(p, target_path)
 
         #if os.path.isdir(source_dir):
-        #    print(f"--> remove duplicated: {file.name}")
+        #    print(f"--> remove duplicated: {p}")
         #    shutil.rmtree(source_dir)
 
         docs.append(doc)

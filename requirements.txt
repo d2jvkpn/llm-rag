@@ -1,4 +1,5 @@
 #### tools
+flake8
 pyyaml
 python-json-logger
 gradio

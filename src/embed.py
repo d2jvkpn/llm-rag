@@ -4,6 +4,7 @@ from typing import Union
 os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
 
 from .chrono import Chrono
+from .utils import now
 
 import yaml, requests, litellm
 from qdrant_client import QdrantClient, models as qmodels
@@ -160,3 +161,35 @@ def search_doc(vector, doc_ids, top_n=10, score_threshold=0.5):
     #texts = [point.payload["text"].strip() for point in hits.points]
 
     return hits
+
+
+# docs: [{path: , doc_id: }]
+def embedding_docs(docs, document2chunks):
+    for d in docs:
+        doc_path = repr(d["path"])
+
+        if vectordb_doc_exists(d["doc_id"]):
+            print(f"{now()} ---> embedding_docs skip: {doc_path}")
+            continue
+
+        print(f"{now()} ---> document2chunks: {d}")
+        doc = document2chunks(d["path"], d["doc_id"])
+
+        texts = [c["text"]for c in doc["chunks"]]
+        print(f"{now()} ---> litellm_embedding: chunks={len(texts)}, doc_path={doc_path}")
+        vectors = litellm_embedding(texts) # ?? split into batches
+
+        print(f"{now()} ---> vectordb_save: chunks={len(texts)}, doc_path={doc_path}")
+        vectordb_save(doc, vectors, recreate=False)
+
+
+def points_to_chunks(points, max_filename_len=64):
+    texts = []
+
+    for p in points:
+        chunk_id = p.payload['chunk_id']
+        filename = os.path.basename(p.payload['path'])[:max_filename_len]
+        text = p.payload['text'].strip()
+        texts.append(f"chunk_id={chunk_id}, {filename}\n```text\n{text}\n```")
+
+    return texts
