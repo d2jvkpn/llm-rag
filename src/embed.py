@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-import os, uuid, json
-from pathlib import Path
+import os, uuid
 # from typing import Union
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from .chrono import Chrono
-from .utils import now
 
 import requests, litellm # yaml
 from qdrant_client import QdrantClient, models as qmodels
@@ -173,66 +171,3 @@ def search_doc(vector, doc_ids, top_n=10, score_threshold=0.5):
     #texts = [point.payload['text'].strip() for point in hits.points]
 
     return hits
-
-
-# docs: {path: , doc_id: }, steps: document2chunks, litellm_embedding, vectordb_save
-def embedding_doc(doc, document2chunks):
-    #doc_path = repr(doc['path'])
-    ####
-    if vectordb_doc_exists(doc['doc_id']):
-        print(f"{now()} embedding_doc/skip: {doc}")
-        return
-
-    doc_path = Path(doc['path']) # basename: doc_path.name
-    doc_dir = doc_path.parent
-
-    ####
-    json_file = doc_dir / "doc_chunks.json"
-
-    if json_file.exists():
-        print(f"{now()} found doc_chunks file: {json_file}")
-        with open(json_file, 'r', encoding="utf-8") as f:
-            doc_chunks = json.load(f)
-    else:
-        print(f"{now()} call document2chunks: {doc}")
-        doc_chunks = document2chunks(doc['path'], doc['doc_id'])
-        with open(json_file, 'w', encoding="utf-8") as f:
-            json.dump(doc_chunks, f, ensure_ascii=False, indent=2)
-
-    ####
-    texts = [c['text']for c in doc_chunks['chunks']]
-    json_file = doc_dir / f"embedding_responses.{QConf['collection']}.json"
-
-    if json_file.exists():
-        print(f"{now()} found embedding_responses file: {json_file}")
-        with open(json_file, 'r', encoding="utf-8") as f:
-            embedding_responses = json.load(f)
-    else:
-        print(f"{now()} call litellm_embedding: chunks={len(texts)}, doc={doc}")
-        embedding_responses = litellm_embedding(texts)
-        with open(json_file, 'w', encoding="utf-8") as f:
-            json.dump(embedding_responses, f, ensure_ascii=False)
-
-    vectors = []
-    for response in embedding_responses:
-        vectors.extend([v['embedding'] for v in response['data']])
-
-    ####
-    # TODO: ??atomicity
-    print(f"{now()} embedding_doc/vectordb_save: chunks={len(texts)}, doc={doc}")
-    vectordb_save(doc_chunks, vectors, recreate=False)
-
-
-def points_to_chunks(points, max_filename_len=64):
-    texts = []
-
-    for p in points:
-        chunk_id = p.payload['chunk_id']
-        filename = os.path.basename(p.payload['path'])
-        if len(filename) > max_filename_len:
-            filename = filename[:max_filename_len-3] + "..."
-
-        text = p.payload['text']
-        texts.append(f"chunk_id={chunk_id}, filename={repr(filename)}\n```text\n{text}\n```")
-
-    return texts

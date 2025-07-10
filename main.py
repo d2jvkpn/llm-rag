@@ -2,8 +2,9 @@
 import os, argparse, re, json, copy # time, shutil
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
-from src import process_doc, embed, local_llms
-from src.utils import now, copy_gradio_files
+from src import embed, local_llms
+from src.utils import now
+import rag
 
 import yaml, litellm
 import gradio as gr
@@ -49,7 +50,7 @@ config['rag'] = { "enabled": False }
 
 
 #### static parameters
-# emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬
+# emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶
 config['app'] = args.app
 config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
 config['reranker']['enabled'] = args.reranker
@@ -129,53 +130,16 @@ def call_llm(messages, parameters):
 
     return response
 
-
-def rag_query_docs(files, user_input):
-    top_n = config['qdrant']['top_n']
-    top_k = config['reranker']['top_n']
-
-    if not files:
-        return ([], [])
-
-    paths = [v.name for v in files]
-    docs = copy_gradio_files(paths, config['upload_dir'])
-    # print(f"{now()} 📎 Uploaded: {docs}")
-    for d in docs:
-        embed.embedding_doc(d, process_doc.document2chunks)
-
-    doc_ids = [d['doc_id'] for d in docs]
-
-    vector = embed.litellm_embedding([user_input])[0]['data'][0]['embedding']
-    # print(f"{now()} rag_query_docs vector: {vector}")
-    hits = embed.search_doc(vector, doc_ids, top_n=top_n)
-    print(f"{now()} search_doc: {len(hits.points)}")
-
-    if len(hits.points) == 0:
-        return (docs, [])
-
-    if not config['reranker']['enabled'] or len(hits.points) <= top_k:
-        return (docs, embed.points_to_chunks(hits.points, 64))
-
-    #for p in hits.points:
-    #    chunk_id = p.payload['chunk_id']
-    #    page = p.payload['page']
-    #    path = p.payload['path']
-    #    print(f"<-- hits: chunk_id={chunk_id}, page={page}, path={path}")
-    #    #print(f"    text: {p.payload['text']}")
-
-    texts = [p.payload['text'] for p in hits.points]
-    print(f"{now()} rerank_texts: {top_k}")
-    scores = local_llms.rerank_texts(user_input, texts)
-    points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
-
-    return (docs, embed.points_to_chunks(points, 64))
-
-
-def rag_user_input(parameters, files, user_input):
+def handle_user_input(parameters, files, user_input):
     if not parameters['rag']['enabled'] or not files:
         return ([], [], user_input)
 
-    docs_files, rag_outputs = rag_query_docs(files, user_input)
+    docs_files, rag_outputs = rag.rag_query_docs(
+        files, user_input,
+        copy.deepcopy(config['reranker']),
+        config['upload_dir'],
+    )
+
     if len(rag_outputs) == 0:
         return (docs_files, [], user_input)
 
@@ -205,7 +169,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
     if user_input == "":
         return (history, "")
 
-    docs_files, rag_outputs, user_input = rag_user_input(parameters, files, user_input)
+    docs_files, rag_outputs, user_input = handle_user_input(parameters, files, user_input)
 
     messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
 
@@ -213,7 +177,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
         # extract user_input only for rag message
         content = m['content'].split("\n", 1)[-1]
 
-        if m['role'] == "user" and m['content'].startswith("📝"):
+        if m['role'] == "user" and m['content'].startswith("📚"):
             match = re.search(r"Input:\s*(.*?)\s*Context:", content, re.DOTALL)
             if match:
                 content = match.group(1).strip()
@@ -227,7 +191,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
     # Just a dummy response
     # answer = user_input.upper()
     # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
-    response = call_llm(messages, parameters)
+    response = call_llm(messages, parameters, )
     ans = response.choices[0].message
 
     reply = {
@@ -240,11 +204,11 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
     }
 
     if parameters['rag']['enabled']:
-        msg['content'] = "📝: {}, temperature={}, matches={}\n{}".format(
+        msg['content'] = "📚: {}, temperature={}, matches={}\n{}".format(
             now(), parameters['llm']['temperature'], len(rag_outputs), msg['content'],
         )
     else:
-        msg['content'] = "📄: {}, temperature={}\n{}".format(
+        msg['content'] = "📝: {}, temperature={}\n{}".format(
             now(), parameters['llm']['temperature'], msg['content'],
         )
 
