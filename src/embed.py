@@ -116,7 +116,8 @@ def vectordb_save(doc, vectors, recreate=False):
         )
 
         QClient.create_payload_index(
-            collection_name=collection, field_name="doc_id", field_schema=field_schema,
+            collection_name=collection,
+            field_name="doc_id", field_schema=field_schema,
         )
 
     doc_id = doc['meta']['doc_id']

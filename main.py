@@ -131,8 +131,7 @@ def call_llm(messages, parameters):
     response = litellm.completion(
         custom_llm_provider=provider, model=model,
         api_base=found.get("api_base"), api_key=found.get("api_key"),
-        max_tokens=parameters['llm']['max_tokens'],
-        temperature=temperature,
+        max_tokens=parameters['llm']['max_tokens'], temperature=temperature,
         num_retries=3, timeout=60, stream=False,
         messages=messages,
     )
