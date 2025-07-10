@@ -142,12 +142,12 @@ def call_llm(messages, parameters):
 
     return response
 
-def handle_user_input(parameters, files, user_input):
-    if not parameters['rag']['enabled'] or not files:
+def handle_user_input(parameters, uploaded_files, user_input):
+    if not parameters['rag']['enabled'] or not uploaded_files:
         return ([], [], user_input)
 
     docs_files, rag_outputs = rag.rag_query_docs(
-        files, user_input,
+        user_input, uploaded_files,
         {
           "top_n": config['qdrant']['top_n'],
           "top_k": config['reranker']['top_n'],
@@ -302,7 +302,7 @@ with gr.Blocks(title=config['app']) as webui:
                 value=config['llm']['user_prompt'],
             )
 
-            files_input = gr.File(
+            uploaded_files = gr.File(
                 label=f"Upload docs for RAG: {', '.join(upload_file_types)}",
                 file_types=upload_file_types, file_count="multiple",
             )
@@ -333,6 +333,7 @@ with gr.Blocks(title=config['app']) as webui:
                         choices=config['llm']['model_choices'],
                     )
 
+
     rag_checkbox.change(
         fn=lambda value: update_rag("enabled", value),
         inputs=rag_checkbox, outputs=None,
@@ -359,7 +360,7 @@ with gr.Blocks(title=config['app']) as webui:
     )
 
     ####
-    inputs = [chatbot, user_input, files_input, system_prompt_input, user_prompt_input]
+    inputs = [chatbot, user_input, uploaded_files, system_prompt_input, user_prompt_input]
 
     # Submit message
     send_button.click(fn=chat_func, inputs=inputs, outputs=[chatbot, user_input])
@@ -371,7 +372,7 @@ with gr.Blocks(title=config['app']) as webui:
     #clear_button.click(
     #    fn=lambda: ("", "", None, []),
     #    inputs=[],
-    #    outputs=[system_prompt_input, user_prompt_input, files_input, chatbot]
+    #    outputs=[system_prompt_input, user_prompt_input, uploaded_files, chatbot]
     #)
 
 print(f"{now()} gradio is starting")

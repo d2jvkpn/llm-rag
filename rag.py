@@ -100,14 +100,11 @@ def embedding_doc(doc, collection):
     embed.vectordb_save(doc_chunks, vectors, recreate=False)
 
 
-def rag_query_docs(files, user_input, settings):
+def rag_query_docs(user_input, uploaded_files, settings):
     top_n = settings['top_n']
     top_k = settings['top_k']
 
-    if not files:
-        return ([], [])
-
-    paths = [v.name for v in files]
+    paths = [v.name for v in uploaded_files]
     docs = copy_gradio_files(paths, settings['upload_dir'])
     # print(f"{now()} 📎 Uploaded: {docs}")
     for d in docs:
