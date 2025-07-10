@@ -71,6 +71,17 @@ config['http']['share'] = args.share
 config['http']['host'] = args.host
 config['http']['port'] = args.port
 
+css = Path("assets") / "style.css"
+if css.exists():
+    with open(css, 'r') as f:
+        config['http']['css'] = f.read()
+
+js = Path("assets") / "gradio.js"
+if js.exists():
+    with open(js, 'r') as f:
+        config['http']['js'] = f.read()
+
+
 _model = Path(config['embedding']['model']).name.replace(':', '--')
 config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
@@ -82,7 +93,7 @@ def static_parameters():
     vector_db = { "collection": d['collection'], "top_n": d['top_n'] }
 
     d = config['reranker']
-    reranker = { "enabled": d['enabled'], "top_n": d['top_n'] }
+    reranker = { "enabled": d['enabled'], "top_k": d['top_k'] }
 
     #strs = [
     #    f"- embedding: {json.dumps(embedding)}",
@@ -142,6 +153,7 @@ def call_llm(messages, parameters):
 
     return response
 
+
 def handle_user_input(parameters, uploaded_files, user_input):
     if not parameters['rag']['enabled'] or not uploaded_files:
         return ([], [], user_input)
@@ -150,7 +162,7 @@ def handle_user_input(parameters, uploaded_files, user_input):
         user_input, uploaded_files,
         {
           "top_n": config['qdrant']['top_n'],
-          "top_k": config['reranker']['top_n'],
+          "top_k": config['reranker']['top_k'],
           "enabled": config['reranker']['enabled'],
           "upload_dir": config['upload_dir'],
           "collection": config['qdrant']['collection'],
@@ -167,6 +179,7 @@ def handle_user_input(parameters, uploaded_files, user_input):
     user_input = f"{user_prompt}".format(input=user_input, context="\n\n".join(texts))
 
     return (docs_files, rag_outputs, user_input)
+
 
 #### 4. biz
 def chat_func(history, user_input, files, system_prompt, user_prompt):
@@ -259,7 +272,9 @@ def update_llm_textbox(key, value):
     return value
 
 #### 5. run
-with gr.Blocks(title=config['app']) as webui:
+with gr.Blocks(
+    title=config['app'], css=config['http'].get('css'), js=config['http'].get('js'),
+) as webui:
     upload_file_types = config['http']['upload_file_types']
 
     #param_info = {
@@ -268,7 +283,9 @@ with gr.Blocks(title=config['app']) as webui:
     #}
 
     with gr.Row():
-        with gr.Column(scale=3):
+        with gr.Column(scale=3, elem_classes=["my-column"]):
+            # gr.HTML('<h4 style="margin: 0"> Control panel </h4>')
+
             system_prompt_input = gr.Textbox(
                 interactive=True,
                 label="System Prompt", lines=6, max_lines=6,
@@ -291,10 +308,7 @@ with gr.Blocks(title=config['app']) as webui:
                     )
 
                 with gr.Row():
-                    rag_checkbox = gr.Checkbox(
-                        label="RAG",
-                        value=config['rag']['enabled'],
-                    )
+                    rag_checkbox = gr.Checkbox(label="RAG", value=config['rag']['enabled'])
 
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
@@ -308,14 +322,15 @@ with gr.Blocks(title=config['app']) as webui:
             )
 
 
-        with gr.Column(scale=7):
+        with gr.Column(scale=7, elem_classes=["my-column"]):
             with gr.Row():
                 gr.Markdown(static_parameters())
                 #gr.ParamViewer(value=param_info)
 
-            chatbot = gr.Chatbot(label="AI Assistant", type='messages', height=600)
+            # height=600
+            chatbot = gr.Chatbot(label="AI Assistant", type='messages', elem_id="my-chatbot")
 
-            with gr.Row():
+            with gr.Row(elem_id="my-input"):
                 with gr.Column(scale=9):
                     user_input = gr.Textbox(
                         show_label=False,
@@ -374,6 +389,7 @@ with gr.Blocks(title=config['app']) as webui:
     #    inputs=[],
     #    outputs=[system_prompt_input, user_prompt_input, uploaded_files, chatbot]
     #)
+
 
 print(f"{now()} gradio is starting")
 
