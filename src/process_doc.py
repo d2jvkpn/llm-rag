@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-import re
+import os, re
 
 import docx, pptx
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 
+
+def doc_filename(path):
+    filename = os.basename(path)
+
+    if len(filename) > 64:
+        filename = filename[:61] + "..."
+
+    return filename
 
 # doc_id=md5-xxxxxxxx
 def document2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
@@ -30,7 +38,7 @@ def document2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
     chunks = []
     for i in range(len(texts)):
         payload = {
-            "path": path, "doc_id": doc_id,
+            "filename": doc_filename(path), "doc_id": doc_id,
             "chunk_id": f"{doc_id}-page0-c{i}", "text": texts[i],
         }
 
@@ -54,7 +62,7 @@ def md2chunks(path, doc_id, chunk_size, chunk_overlap):
     chunks = []
     for i in range(len(docs)):
         payload = {
-            "path": path, "doc_id": doc_id,
+            "filename": doc_filename(path), "doc_id": doc_id,
             "chunk_id": f"{doc_id}-page0-c{i}", "text": docs[i],
         }
 
@@ -87,7 +95,7 @@ def pptx2chunks(path, doc_id):
         if len(paragraphs) == 0: continue
 
         payload = {
-            "path": path, "doc_id": doc_id,
+            "filename": doc_filename(path), "doc_id": doc_id,
             "chunk_id": f"{doc_id}-page{page}-c{i}", "text": "\n".join(paragraphs),
         }
         chunks.append(payload)
@@ -116,7 +124,7 @@ def pdf2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
 
         for i in range(len(texts)):
             payload = {
-                "path": path, "doc_id": doc_id,
+                "filename": doc_filename(path), "doc_id": doc_id,
                 "chunk_id": f"{doc_id}-page{page}-c{i}", "text": texts[i],
             }
 

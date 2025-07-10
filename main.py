@@ -84,10 +84,10 @@ def static_parameters():
 
 
 #### 2. setup
-print(f"==> args: {args}")
+print(f"{now()} ==> args: {args}")
 
 os.makedirs(config['upload_dir'], exist_ok=True)
-print(f"--> upload_dir: {config['upload_dir']}")
+# print(f"--> upload_dir: {config['upload_dir']}")
 
 
 embed.init(config)
@@ -96,13 +96,14 @@ if args.delete_collection:
     collection = config['qdrant']['collection']
 
     if embed.QClient.collection_exists(collection):
-        print(f"--> deleting collection: {collection=}")
+        print(f"--> deleting collection: {collection}")
         embed.QClient.delete_collection(collection)
 
 
 if config['reranker']['enabled']:
-    print("--> init_reranker:", config['reranker']['model'])
+    print(f"{now()} init_reranker:", config['reranker']['model'])
     local_llms.init_reranker(config['reranker']['model'])
+    print(f"{now()} reranker initialized")
 
 
 #### 3. functions
@@ -353,6 +354,8 @@ with gr.Blocks(title=config['app']) as webui:
     #    inputs=[],
     #    outputs=[system_prompt_input, user_prompt_input, files_input, chatbot]
     #)
+
+print(f"{now()} gradio is starting")
 
 webui.launch(
     share=config['http']['share'],
