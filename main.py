@@ -136,8 +136,13 @@ def handle_user_input(parameters, files, user_input):
 
     docs_files, rag_outputs = rag.rag_query_docs(
         files, user_input,
-        copy.deepcopy(config['reranker']),
-        config['upload_dir'],
+        {
+          "top_n": config['qdrant']['top_n'],
+          "top_k": config['reranker']['top_n'],
+          "enabled": config['reranker']['enabled'],
+          "upload_dir": config['upload_dir'],
+          "collection": config['qdrant']['collection'],
+        },
     )
 
     if len(rag_outputs) == 0:
@@ -173,7 +178,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
 
     messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
 
-    for m in (history[-5:] if len(history) > 5 else history):
+    for m in (history[-10:] if len(history) > 10 else history):
         # extract user_input only for rag message
         content = m['content'].split("\n", 1)[-1]
 

@@ -51,7 +51,7 @@ def points_to_chunks(points, max_filename_len=64):
 
 
 # docs: {path: , doc_id: }, steps: document2chunks, litellm_embedding, vectordb_save
-def embedding_doc(doc):
+def embedding_doc(doc, collection):
     #doc_path = repr(doc['path'])
     ####
     if embed.vectordb_doc_exists(doc['doc_id']):
@@ -78,7 +78,7 @@ def embedding_doc(doc):
 
     ####
     texts = [c['text']for c in doc_chunks['chunks']]
-    json_file = doc_dir / f"embedding_responses.{embed.QConf['collection']}.json"
+    json_file = doc_dir / f"embedding_responses.{collection}.json"
 
     if json_file.exists():
         print(f"{now()} found embedding_responses file: {json_file}")
@@ -102,18 +102,18 @@ def embedding_doc(doc):
     embed.vectordb_save(doc_chunks, vectors, recreate=False)
 
 
-def rag_query_docs(files, user_input, reranker, upload_dir):
-    top_n = embed.QConf['top_n']
-    top_k = reranker['top_n']
+def rag_query_docs(files, user_input, settings):
+    top_n = settings['top_n']
+    top_k = settings['top_k']
 
     if not files:
         return ([], [])
 
     paths = [v.name for v in files]
-    docs = copy_gradio_files(paths, upload_dir)
+    docs = copy_gradio_files(paths, settings['upload_dir'])
     # print(f"{now()} 📎 Uploaded: {docs}")
     for d in docs:
-        embedding_doc(d)
+        embedding_doc(d, settings['collection'])
 
     doc_ids = [d['doc_id'] for d in docs]
 
@@ -124,7 +124,7 @@ def rag_query_docs(files, user_input, reranker, upload_dir):
     if len(hits.points) == 0:
         return (docs, [])
 
-    if not reranker['enabled'] or len(hits.points) <= top_k:
+    if not settings['enabled'] or len(hits.points) <= top_k:
         return (docs, points_to_chunks(hits.points, 64))
 
     #for p in hits.points:
