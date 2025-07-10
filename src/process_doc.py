@@ -2,8 +2,8 @@
 import re
 
 import docx, pptx
-from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import PyPDFLoader
 
 
 # doc_id=md5-xxxxxxxx
@@ -12,16 +12,18 @@ def document2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
     number_of_pages = 0
 
     if ext == "pptx":
-       return pptx2chunks(path, doc_id)
+        return pptx2chunks(path, doc_id)
     elif ext == "pdf":
         return pdf2chunks(path, doc_id, chunk_size, chunk_overlap)
+    elif ext == "md":
+        return md2chunks(path, doc_id, chunk_size, chunk_overlap)
     elif ext == "txt":
         with open(path, 'r', encoding='utf-8') as f:
             text = f.read()
         texts = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
     elif ext == "docx":
-       doc = docx.Document(path)
-       texts = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        doc = docx.Document(path)
+        texts = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
     else:
         raise ValueError("unknown filetype")
 
@@ -37,6 +39,31 @@ def document2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
     meta = {
         "path": path, "doc_id": doc_id, "number_of_pages": number_of_pages,
         "chunk_size": 0, "chunk_overlap": 0, "number_of_chunks": len(chunks),
+    }
+
+    return {"chunks": chunks, "meta": meta}
+
+
+def md2chunks(path, doc_id, chunk_size, chunk_overlap):
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    docs = splitter.create_documents([text])
+
+    chunks = []
+    for i in range(len(docs)):
+        payload = {
+            "path": path, "doc_id": doc_id,
+            "chunk_id": f"{doc_id}-page0-c{i}", "text": docs[i],
+        }
+
+        chunks.append(payload)
+
+    meta = {
+        "path": path, "doc_id": doc_id, "number_of_pages": 0,
+        "chunk_size": chunk_size, "chunk_overlap": chunk_overlap,
+        "number_of_chunks": len(chunks),
     }
 
     return {"chunks": chunks, "meta": meta}

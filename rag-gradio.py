@@ -18,6 +18,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 
+parser.add_argument("--app", help="app name", default="rag-gadio")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
@@ -48,6 +49,8 @@ config['rag'] = { "enabled": False }
 
 
 #### static parameters
+# emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬
+config['app'] = args.app
 config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
 config['reranker']['enabled'] = args.reranker
 
@@ -68,13 +71,15 @@ def static_parameters():
     d = config['reranker']
     reranker = { "enabled": d['enabled'], "top_n": d['top_n'] }
 
-    strs = [
-        f"- embedding: {json.dumps(embedding)}",
-        f"- vector_db: {json.dumps(vector_db)}",
-        f"- reranker: {json.dumps(reranker)}",
-    ]
+    #strs = [
+    #    f"- embedding: {json.dumps(embedding)}",
+    #    f"- vector_db: {json.dumps(vector_db)}",
+    #    f"- reranker: {json.dumps(reranker)}",
+    #]
 
-    return "Parameters\n" + "\n".join(strs)
+    #return "Parameters\n" + "\n".join(strs)
+    return "**Parameters**: " + \
+        json.dumps({"embedding": embedding, "vector_db": vector_db, "reranker": reranker})
 
 
 #### 2. setup
@@ -206,7 +211,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
         # extract user_input only for rag message
         content = m['content'].split("\n", 1)[-1]
 
-        if m['role'] == "user" and m['content'].startswith("📚"):
+        if m['role'] == "user" and m['content'].startswith("📝"):
             match = re.search(r"Input:\s*(.*?)\s*Context:", content, re.DOTALL)
             if match:
                 content = match.group(1).strip()
@@ -219,27 +224,25 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
 
     # Just a dummy response
     # answer = user_input.upper()
-    # reply = { "role": "assistant", "content": f"🤖: {now()}, model={repr(model)}\n{answer}" }
+    # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
     response = call_llm(messages, parameters)
     ans = response.choices[0].message
-    usage = response.usage
-    usage = [usage.prompt_tokens, usage.completion_tokens, usage.total_tokens]
 
     reply = {
         "role": ans.role,
-        "content": "🤖: {}, model={}, {}\n{}".format(
+        "content": "✨: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
             now(), repr(parameters['llm']['selected_model']), 
-            f"prompt={usage[0]}, completion={usage[1]}, total={usage[2]}",
-            ans.content,
+            response.usage.prompt_tokens, response.usage.completion_tokens,
+            response.usage.total_tokens, ans.content,
         ),
     }
 
     if parameters['rag']['enabled']:
-        msg['content'] = "📚: {}, temperature={}, matches={}\n{}".format(
+        msg['content'] = "📝: {}, temperature={}, matches={}\n{}".format(
             now(), parameters['llm']['temperature'], len(rag_outputs), msg['content'],
         )
     else:
-        msg['content'] = "🧑: {}, temperature={}\n{}".format(
+        msg['content'] = "📄: {}, temperature={}\n{}".format(
             now(), parameters['llm']['temperature'], msg['content'],
         )
 
@@ -271,7 +274,7 @@ def update_llm_textbox(key, value):
     return value
 
 #### 5. run
-with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
+with gr.Blocks(title=config['app']) as webui:
     upload_file_types = config['http']['upload_file_types']
 
     #param_info = {
@@ -283,13 +286,9 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
         with gr.Column(scale=3):
             system_prompt_input = gr.Textbox(
                 interactive=True,
-                label="System Prompt", lines=7, max_lines=7,
+                label="System Prompt", lines=6, max_lines=6,
                 value=config['llm']['system_prompt'],
             )
-
-            with gr.Row():
-                gr.Markdown(static_parameters())
-                #gr.ParamViewer(value=param_info)
 
             with gr.Row():
                 #clear_button = gr.Button("Clear", scale=1)
@@ -310,7 +309,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
 
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                value=config['llm']['user_prompt'], lines=10, max_lines=10,
+                value=config['llm']['user_prompt'], lines=8, max_lines=8,
             )
 
             files_input = gr.File(
@@ -320,7 +319,11 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
 
 
         with gr.Column(scale=7):
-            chatbot = gr.Chatbot(label="AI Assistant", type='messages', height=1000)
+            with gr.Row():
+                gr.Markdown(static_parameters())
+                #gr.ParamViewer(value=param_info)
+
+            chatbot = gr.Chatbot(label="AI Assistant", type='messages', height=600)
 
             with gr.Row():
                 with gr.Column(scale=9):
@@ -331,7 +334,7 @@ with gr.Blocks(title=os.getenv("app", "rag-gradio")) as webui:
                     )
 
                 with gr.Column(scale=1, min_width=250):
-                    send_button = gr.Button("Send", variant="primary")
+                    send_button = gr.Button("Send", variant="secondary")
 
                     model_selector = gr.Dropdown(
                         show_label=False, interactive=True, label="Select Model",
