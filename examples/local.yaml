@@ -11,15 +11,14 @@ llm_models:
   api_key: sk-xxxxxxxx
   hosted_vllm: true
 
-- provider: ollama
-  model: deepseek-r1:8b
-  api_base: http://localhost:11434
-  api_key: ""
-
 - provider: deepseek
   model: deepseek-chat
   api_base: https://api.deepseek.com
   api_key: sk-xxxxxxxx
+
+- provider: ollama
+  model: deepseek-r1:8b
+  api_base: http://localhost:11434
 
 embedding:
   provider: ollama

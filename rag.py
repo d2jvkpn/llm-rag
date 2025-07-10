@@ -113,7 +113,7 @@ def rag_query_docs(user_input, uploaded_files, settings):
     doc_ids = [d['doc_id'] for d in docs]
 
     vector = embed.litellm_embedding([user_input])[0]['data'][0]['embedding']
-    hits = embed.search_doc(vector, doc_ids, top_n=top_n)
+    hits = embed.search_doc(vector, doc_ids, top_n=top_n, score_threshold=0.5)
     print(f"{now()} rag_query_docs/search_doc: {len(hits.points)}")
 
     if len(hits.points) == 0:
