@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 
-parser.add_argument("--app", help="app name", default="rag-gadio")
+parser.add_argument("--app", help="app name", default="RAG-Gradio")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
