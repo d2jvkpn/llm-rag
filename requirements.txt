@@ -1,5 +1,6 @@
 #### tools
 #flake8
+#ipython
 pyyaml
 gradio
 
