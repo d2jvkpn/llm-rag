@@ -1,9 +1,9 @@
 # Title
 ---
 ```meta
-date: 1970-01-01
+date: 2025-07-10
 authors: []
-version: 0.1.0
+version: 0.1.1
 ```
 
 
@@ -11,7 +11,7 @@ version: 0.1.0
 1. docs
 - a. 
 
-2. misc
+2. commandlines
 - embedding_responses meta
 ```
 jq 'map(del(.data))' embedding_responses.collection.json
