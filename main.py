@@ -29,11 +29,11 @@ parser.add_argument(
     help="delete collection in vector database",
     action="store_true",
 )
-parser.add_argument("--debug", help="debug mode", action="store_true")
 
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
 parser.add_argument("--port", help="http listening port", type=int, default=7860)
 parser.add_argument("--share", help="gradio share", action="store_true")
+parser.add_argument("--debug", help="debug mode", action="store_true")
 
 args = parser.parse_args()
 if args.debug:
