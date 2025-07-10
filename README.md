@@ -10,3 +10,9 @@ version: 0.1.0
 #### ch01. 
 1. docs
 - a. 
+
+2. misc
+- embedding_responses meta
+```
+jq 'map(del(.data))' embedding_responses.collection.json
+```
