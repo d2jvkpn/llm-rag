@@ -140,10 +140,12 @@ def rag_query_docs(files, user_input):
     paths = [v.name for v in files]
     docs = copy_gradio_files(paths, config['upload_dir'])
     # print(f"{now()} 📎 Uploaded: {docs}")
-    embed.embedding_docs(docs, process_doc.document2chunks)
+    for d in docs:
+        embed.embedding_doc(d, process_doc.document2chunks)
+
     doc_ids = [d['doc_id'] for d in docs]
 
-    vector = embed.litellm_embedding([user_input])[0]
+    vector = embed.litellm_embedding([user_input])[0]['data'][0]['embedding']
     # print(f"{now()} rag_query_docs vector: {vector}")
     hits = embed.search_doc(vector, doc_ids, top_n=top_n)
     print(f"{now()} search_doc: {len(hits.points)}")

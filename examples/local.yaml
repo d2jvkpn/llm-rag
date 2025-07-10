@@ -50,7 +50,8 @@ llm:
   user_prompt: |
     请根据以下 Input（用户问题）和 Context（提供的资料）进行回答：
 
-    Input: {input}
+    Input:
+    {input}
 
     Context:
     {context}

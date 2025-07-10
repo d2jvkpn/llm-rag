@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import os, uuid
+import os, uuid, json
+from pathlib import Path
 # from typing import Union
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
@@ -12,7 +13,6 @@ from qdrant_client import QdrantClient, models as qmodels
 
 
 QConf, QClient = {}, None
-EmbeddingConfig = {}
 
 def init(config): # yaml filepath
     global QConf, QClient, EmbeddingConf
@@ -54,20 +54,22 @@ def litellm_embedding(texts: list[str]): # Union[str, list[str]], "hello", ['hel
     else:
         provider = EmbeddingConf['provider']     # ollama
 
+    batches = [texts[i : i + 10] for i in range(0, len(texts), 10)] # list[list[str]]
+    #vectors = []
 
-    batches = [texts[i : i + 10] for i in range(0, len(texts), 10)]
-    vectors = []
-
-    for text in batches:
+    responses = []
+    for batch in batches:
         response = litellm.embedding(
             model, custom_llm_provider=provider,
             api_base=api_base, api_key=api_key,
-            input=text,
+            input=batch,
         )
 
-        vectors.extend([v['embedding'] for v in response['data']])
+        #vectors.extend([v['embedding'] for v in response['data']])
+        responses.append(response.json()) # response['data'] = [{{'embedding': [0.01, 0.02...]}]
 
-    return vectors
+    #return vectors
+    return responses
 
 
 def vectordb_doc_exists(doc_id):
@@ -173,24 +175,52 @@ def search_doc(vector, doc_ids, top_n=10, score_threshold=0.5):
     return hits
 
 
-# docs: [{path: , doc_id: }]
-def embedding_docs(docs, document2chunks):
-    for d in docs:
-        doc_path = repr(d['path'])
+# docs: {path: , doc_id: }, steps: document2chunks, litellm_embedding, vectordb_save
+def embedding_doc(doc, document2chunks):
+    #doc_path = repr(doc['path'])
+    ####
+    if vectordb_doc_exists(doc['doc_id']):
+        print(f"{now()} embedding_doc/skip: {doc}")
+        return
 
-        if vectordb_doc_exists(d['doc_id']):
-            print(f"{now()} embedding_docs skip: {doc_path}")
-            continue
+    doc_path = Path(doc['path']) # basename: doc_path.name
+    doc_dir = doc_path.parent
 
-        print(f"{now()} document2chunks: {d}")
-        doc = document2chunks(d['path'], d['doc_id'])
+    ####
+    json_file = doc_dir / "doc_chunks.json"
 
-        texts = [c['text']for c in doc['chunks']]
-        print(f"{now()} litellm_embedding: chunks={len(texts)}, doc_path={doc_path}")
-        vectors = litellm_embedding(texts)
+    if json_file.exists():
+        print(f"{now()} found doc_chunks file: {json_file}")
+        with open(json_file, 'r', encoding="utf-8") as f:
+            doc_chunks = json.load(f)
+    else:
+        print(f"{now()} call document2chunks: {doc}")
+        doc_chunks = document2chunks(doc['path'], doc['doc_id'])
+        with open(json_file, 'w', encoding="utf-8") as f:
+            json.dump(doc_chunks, f, ensure_ascii=False, indent=2)
 
-        print(f"{now()} vectordb_save: chunks={len(texts)}, doc_path={doc_path}")
-        vectordb_save(doc, vectors, recreate=False)
+    ####
+    texts = [c['text']for c in doc_chunks['chunks']]
+    json_file = doc_dir / f"embedding_responses.{QConf['collection']}.json"
+
+    if json_file.exists():
+        print(f"{now()} found embedding_responses file: {json_file}")
+        with open(json_file, 'r', encoding="utf-8") as f:
+            embedding_responses = json.load(f)
+    else:
+        print(f"{now()} call litellm_embedding: chunks={len(texts)}, doc={doc}")
+        embedding_responses = litellm_embedding(texts)
+        with open(json_file, 'w', encoding="utf-8") as f:
+            json.dump(embedding_responses, f, ensure_ascii=False)
+
+    vectors = []
+    for response in embedding_responses:
+        vectors.extend([v['embedding'] for v in response['data']])
+
+    ####
+    # TODO: ??atomicity
+    print(f"{now()} embedding_doc/vectordb_save: chunks={len(texts)}, doc={doc}")
+    vectordb_save(doc_chunks, vectors, recreate=False)
 
 
 def points_to_chunks(points, max_filename_len=64):
