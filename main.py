@@ -24,7 +24,11 @@ parser.add_argument("--app", help="app name", default="RAG-Gradio")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
-parser.add_argument("--delete-collection", help="delete collection in qdran", action="store_true")
+parser.add_argument(
+    "--delete-collection",
+    help="delete collection in vector database",
+    action="store_true",
+)
 parser.add_argument("--debug", help="debug mode", action="store_true")
 
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
