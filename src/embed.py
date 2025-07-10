@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import os, uuid
+from datetime import datetime
 # from typing import Union
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
-from .chrono import Chrono
+# from .utils import now
 
 import requests, litellm # yaml
 from qdrant_client import QdrantClient, models as qmodels
@@ -85,11 +86,11 @@ def vectordb_doc_exists(doc_id):
 
 def vectordb_save(doc, vectors, recreate=False):
     assert(len(doc['chunks']) == len(vectors))
-    t0 = Chrono()
+    t0 = datetime.now()
     collection = QConf['collection']
     dimension = len(vectors[0])
 
-    # print(f"==> {Chrono()} Starting embedding_doc: doc={doc['meta']}")
+    # print(f"==> {now()} Starting embedding_doc: doc={doc['meta']}")
     # client.delete_collection(collection)
     optimizers_config = qmodels.OptimizersConfigDiff(
         indexing_threshold=0, memmap_threshold=20000,
@@ -138,10 +139,10 @@ def vectordb_save(doc, vectors, recreate=False):
 
     QClient.upsert(collection_name=collection, points=points)
 
-    doc['meta'].update({ "embedding_at": f"{t0}", "embedding_elapsed": t0.elapsed() })
+    doc['meta'].update({ "embedding_at": f"{t0}", "embedding_elapsed": datetime.now() - t0 })
 
-    #print(f"<== {Chrono()} Done")
-    #print(f"==> {Chrono()} process_doc 4")
+    #print(f"<== {now()} Done")
+    #print(f"==> {now()} process_doc 4")
     return doc
 
 

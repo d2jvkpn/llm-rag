@@ -46,8 +46,9 @@ with open(args.config, 'r') as f:
 ##### dynamic parameters
 config['llm']['temperature'] = 0.5
 config['llm']['max_tokens'] = 1024
-config['llm']['model_choices'] = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
-config['llm']['selected_model'] = config['llm']['model_choices'][0]
+moddel_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
+config['llm']['model_choices'] = moddel_choices
+config['llm']['selected_model'] = moddel_choices[0]
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
 config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
@@ -182,16 +183,13 @@ def handle_user_input(parameters, uploaded_files, user_input):
 
 
 #### 4. biz
-def chat_func(history, user_input, files, system_prompt, user_prompt):
+def chat_func(history, user_input, uploaded_files, system_prompt, user_prompt, parameters):
     # print(f"<-- system_prompt: {system_prompt}")
     # print(f"<-- user_prompt: {user_prompt}")
     # print(f"<-- parematers: selected_model={selected_model}, rag={rag}")
 
+    # print(f"~~~ parameters: {parameters}")
     # TODO: how to add extract messages to history
-    parameters = {
-        "llm": copy.deepcopy(config['llm']),
-        "rag": copy.deepcopy(config['rag']),
-    }
     parameters['llm']['system_prompt'] = system_prompt
     parameters['llm']['user_prompt'] = user_prompt
 
@@ -199,7 +197,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
     if user_input == "":
         return (history, "")
 
-    docs_files, rag_outputs, user_input = handle_user_input(parameters, files, user_input)
+    docs_files, rag_outputs, user_input = handle_user_input(parameters, uploaded_files, user_input)
 
     messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
 
@@ -221,7 +219,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
     # Just a dummy response
     # answer = user_input.upper()
     # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
-    response = call_llm(messages, parameters, )
+    response = call_llm(messages, parameters)
     ans = response.choices[0].message
 
     reply = {
@@ -250,23 +248,35 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
     return (history, "")
 
 
-def update_rag(key, value):
-    print(f"<-- update_rag {key}: {value}")
-    config['rag'][key] = value
+def update_rag(key):
+    def fn(parameters, value):
+        print(f"<-- update_rag {key}: {value}")
+        parameters['rag'][key] = value
+        return parameters
 
-def update_llm(key, value):
-    print(f"<-- update_llm {key}: {value}")
-    config['llm'][key] = value
+    return fn
 
-def update_llm_min(key, value, min_val=None):
-    if min_val and value < min_val:
-        value = min_val
+def update_llm(key):
+    def fn(parameters, value):
+        print(f"<-- update_llm {key}: {value}")
+        parameters['llm'][key] = value
+        return parameters
 
-    print(f"<-- update_llm_min {key}: {value}")
-    config['llm'][key] = value
+    return fn
+
+def update_llm_min(key, min_val=None):
+    def fn(parameters, value):
+        if min_val and value < min_val:
+            value = min_val
+
+        print(f"<-- update_llm_min {key}: {value}")
+        parameters['llm'][key] = value
+        return parameters
+
+    return fn
 
 # deprecated
-def update_llm_textbox(key, value):
+def update_llm_textbox(parameters, key, value):
     #print(f"<-- update_llm {key}: {value}")
     config['llm'][key] = value
     return value
@@ -275,12 +285,17 @@ def update_llm_textbox(key, value):
 with gr.Blocks(
     title=config['app'], css=config['http'].get('css'), js=config['http'].get('js'),
 ) as webui:
-    upload_file_types = config['http']['upload_file_types']
-
     #param_info = {
     #    "temperature": {"type": "float", "description": "Creativity level", "default": 0.7},
     #    "max_tokens": {"type": "int", "description": "Max tokens in response", "default": 256}
     #}
+
+    upload_file_types = config['http']['upload_file_types']
+
+    parameters = gr.State({
+        "llm": copy.deepcopy(config['llm']),
+        "rag": copy.deepcopy(config['rag']),
+    })
 
     with gr.Row():
         with gr.Column(scale=3, elem_classes=["my-column"]):
@@ -350,8 +365,8 @@ with gr.Blocks(
 
 
     rag_checkbox.change(
-        fn=lambda value: update_rag("enabled", value),
-        inputs=rag_checkbox, outputs=None,
+        fn=update_rag('enabled'),
+        inputs=[parameters, rag_checkbox], outputs=[parameters],
     )
 
     #system_prompt_input.change(
@@ -360,22 +375,25 @@ with gr.Blocks(
     #)
 
     max_tokens_input.change(
-        fn=lambda value: update_llm_min("max_tokens", value, 20),
-        inputs=max_tokens_input, outputs=None,
+        fn=update_llm_min("max_tokens", 20),
+        inputs=[parameters, max_tokens_input], outputs=[parameters],
     )
 
     temperature_slider.change(
-        fn=lambda value: update_llm("temperature", value),
-        inputs=temperature_slider, outputs=None,
+        fn=update_llm("temperature"),
+        inputs=[parameters, temperature_slider], outputs=[parameters],
     )
 
     model_selector.change(
-        fn=lambda value: update_llm("selected_model", value),
-        inputs=model_selector, outputs=None,
+        fn=update_llm("selected_model"),
+        inputs=[parameters, model_selector], outputs=[parameters],
     )
 
     ####
-    inputs = [chatbot, user_input, uploaded_files, system_prompt_input, user_prompt_input]
+    inputs = [
+        chatbot, user_input, uploaded_files, system_prompt_input,
+        user_prompt_input, parameters,
+    ]
 
     # Submit message
     send_button.click(fn=chat_func, inputs=inputs, outputs=[chatbot, user_input])

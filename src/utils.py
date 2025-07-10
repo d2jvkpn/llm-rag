@@ -6,7 +6,7 @@ from datetime import datetime
 def now():
     at = datetime.now().astimezone()
     # return f"{at}".replace(" ", "T")
-    return at.strftime("[%Y-%m-%dT%H:%M:%S%z]")
+    return at.strftime("%Y-%m-%dT%H:%M:%S%z")
 
 
 def file_md5(file_path):
