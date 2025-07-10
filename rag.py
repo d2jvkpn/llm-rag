@@ -119,7 +119,7 @@ def rag_query_docs(files, user_input, settings):
 
     vector = embed.litellm_embedding([user_input])[0]['data'][0]['embedding']
     hits = embed.search_doc(vector, doc_ids, top_n=top_n)
-    print(f"{now()} search_doc: {len(hits.points)}")
+    print(f"{now()} rag_query_docs/search_doc: {len(hits.points)}")
 
     if len(hits.points) == 0:
         return (docs, [])
@@ -135,7 +135,7 @@ def rag_query_docs(files, user_input, settings):
     #    #print(f"    text: {p.payload['text']}")
 
     texts = [p.payload['text'] for p in hits.points]
-    print(f"{now()} rerank_texts: {top_k}")
+    print(f"{now()} rag_query_docs/rerank_texts: {top_k}")
     scores = local_llms.rerank_texts(user_input, texts)
     points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
 
