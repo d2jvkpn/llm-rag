@@ -312,7 +312,7 @@ with gr.Blocks(
 
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                lines=8, max_lines=8,
+                lines=9, max_lines=9,
                 value=config['llm']['user_prompt'],
             )
 
