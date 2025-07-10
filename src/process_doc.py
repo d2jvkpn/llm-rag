@@ -7,7 +7,7 @@ from langchain_community.document_loaders import PyPDFLoader
 
 
 def doc_filename(path):
-    filename = os.basename(path)
+    filename = os.path.basename(path)
 
     if len(filename) > 64:
         filename = filename[:61] + "..."

@@ -35,17 +35,15 @@ def copy_gradio_files(paths, dirctory):
     return docs
 
 
-def points_to_chunks(points, max_filename_len=64):
+def points_to_chunks(points):
     texts = []
 
     for p in points:
         chunk_id = p.payload['chunk_id']
-        filename = Path(p.payload['path']).name
-        if len(filename) > max_filename_len:
-            filename = filename[:max_filename_len-3] + "..."
+        filename = repr(p.payload['filename'])
 
         text = p.payload['text']
-        texts.append(f"chunk_id={chunk_id}, filename={repr(filename)}\n```text\n{text}\n```")
+        texts.append(f"chunk_id={chunk_id}, filename={filename}\n```text\n{text}\n```")
 
     return texts
 
@@ -125,13 +123,13 @@ def rag_query_docs(files, user_input, settings):
         return (docs, [])
 
     if not settings['enabled'] or len(hits.points) <= top_k:
-        return (docs, points_to_chunks(hits.points, 64))
+        return (docs, points_to_chunks(hits.points))
 
     #for p in hits.points:
     #    chunk_id = p.payload['chunk_id']
     #    page = p.payload['page']
-    #    path = p.payload['path']
-    #    print(f"<-- hits: chunk_id={chunk_id}, page={page}, path={path}")
+    #    filename = p.payload['filename']
+    #    print(f"<-- hits: chunk_id={chunk_id}, page={page}, filename={filename}")
     #    #print(f"    text: {p.payload['text']}")
 
     texts = [p.payload['text'] for p in hits.points]
@@ -139,4 +137,4 @@ def rag_query_docs(files, user_input, settings):
     scores = local_llms.rerank_texts(user_input, texts)
     points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
 
-    return (docs, points_to_chunks(points, 64))
+    return (docs, points_to_chunks(points))

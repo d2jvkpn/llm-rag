@@ -34,6 +34,7 @@ import markdown
 from bs4 import BeautifulSoup
 from langchain.schema import Document
 
+
 def load_md_offline(path):
     with open(path, encoding="utf-8") as f:
         raw = f.read()
@@ -45,5 +46,5 @@ def load_md_offline(path):
 #### 4.
 from langchain.document_loaders import UnstructuredMarkdownLoader
 
-loader = UnstructuredMarkdownLoader(path, mode="elements")
+loader = UnstructuredMarkdownLoader("README.md", mode="elements")
 texts = loader.load()

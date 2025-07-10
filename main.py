@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os, argparse, re, json, copy # time, shutil
+from pathlib import Path
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
@@ -50,16 +51,23 @@ config['rag'] = { "enabled": False }
 
 
 #### static parameters
-# emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶
 config['app'] = args.app
-config['upload_dir'] = os.path.join("data", "uploads") # args.app.replace(" ", "-")
+
+# emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶
+config['emoj'] = {
+  "user": "📝",
+  "ai": "✨",
+  "rag": "📚",
+}
+
+config['upload_dir'] = Path("data") / "uploads" # args.app.replace(" ", "-")
 config['reranker']['enabled'] = args.reranker
 
 config['http']['share'] = args.share
 config['http']['host'] = args.host
 config['http']['port'] = args.port
 
-_model = os.path.basename(config['embedding']['model']).replace(':', '--')
+_model = Path(config['embedding']['model']).name.replace(':', '--')
 config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
 def static_parameters():
@@ -183,7 +191,7 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
         # extract user_input only for rag message
         content = m['content'].split("\n", 1)[-1]
 
-        if m['role'] == "user" and m['content'].startswith("📚"):
+        if m['role'] == "user" and m['content'].startswith(config['emoj']['rag']):
             match = re.search(r"Input:\s*(.*?)\s*Context:", content, re.DOTALL)
             if match:
                 content = match.group(1).strip()
@@ -202,20 +210,22 @@ def chat_func(history, user_input, files, system_prompt, user_prompt):
 
     reply = {
         "role": ans.role,
-        "content": "✨: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
-            now(), repr(parameters['llm']['selected_model']), 
+        "content": "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
+            config['emoj']['ai'], now(), repr(parameters['llm']['selected_model']), 
             response.usage.prompt_tokens, response.usage.completion_tokens,
             response.usage.total_tokens, ans.content,
         ),
     }
 
     if parameters['rag']['enabled']:
-        msg['content'] = "📚: {}, temperature={}, matches={}\n{}".format(
-            now(), parameters['llm']['temperature'], len(rag_outputs), msg['content'],
+        msg['content'] = "{}: {}, temperature={}, matches={}\n{}".format(
+            config['emoj']['ai'], now(),
+            parameters['llm']['temperature'], len(rag_outputs), msg['content'],
         )
     else:
-        msg['content'] = "📝: {}, temperature={}\n{}".format(
-            now(), parameters['llm']['temperature'], msg['content'],
+        msg['content'] = "{}: {}, temperature={}\n{}".format(
+            config['emoj']['user'], now(),
+            parameters['llm']['temperature'], msg['content'],
         )
 
     history.extend([msg, reply])
