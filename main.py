@@ -276,7 +276,8 @@ with gr.Blocks(title=config['app']) as webui:
                 with gr.Row():
                     temperature_slider = gr.Slider(
                         label="Temperature",
-                        value=config['llm']['temperature'], minimum=0.0, maximum=1.5, step=0.1,
+                        value=config['llm']['temperature'],
+                        minimum=0.0, maximum=1.5, step=0.1,
                     )
 
                     max_tokens_input = gr.Number(
@@ -286,11 +287,15 @@ with gr.Blocks(title=config['app']) as webui:
                     )
 
                 with gr.Row():
-                    rag_checkbox = gr.Checkbox(label="RAG", value=config['rag']['enabled'])
+                    rag_checkbox = gr.Checkbox(
+                        label="RAG",
+                        value=config['rag']['enabled'],
+                    )
 
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                value=config['llm']['user_prompt'], lines=8, max_lines=8,
+                lines=8, max_lines=8,
+                value=config['llm']['user_prompt'],
             )
 
             files_input = gr.File(
@@ -318,7 +323,8 @@ with gr.Blocks(title=config['app']) as webui:
                     send_button = gr.Button("Send", variant="secondary")
 
                     model_selector = gr.Dropdown(
-                        show_label=False, interactive=True, label="Select Model",
+                        interactive=True, show_label=False,
+                        label="Select Model",
                         value=config['llm']['selected_model'],
                         choices=config['llm']['model_choices'],
                     )
