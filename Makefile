@@ -11,4 +11,5 @@ run:
 	. $$(yq .local.venv configs/local.yaml)/bin/activate && ./main.py
 
 test:
-	. $$(yq .local.venv configs/local.yaml)/bin/activate && ./main.py --host=0.0.0.0 --port=7862
+	. $$(yq .local.venv configs/local.yaml)/bin/activate && ./main.py \
+	  --mode=test --host=0.0.0.0 --port=7862

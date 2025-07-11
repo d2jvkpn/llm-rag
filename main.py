@@ -66,8 +66,7 @@ config['emoj'] = {
 # args.app.replace(" ", "-")
 config['http']['upload_dir'] = Path("data") / "uploads"
 config['http']['share'] = args.share
-config['http']['host'] = args.host
-config['http']['port'] = args.port
+config['http']['host'], config['http']['port'] = args.host, args.port
 
 config['reranker']['enabled'] = args.reranker
 
