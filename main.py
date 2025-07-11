@@ -23,6 +23,7 @@ parser.add_argument("--app", help="app name", default="RAG-Gradio")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
+
 parser.add_argument(
     "--delete-collection",
     help="delete collection in vector database",
@@ -66,7 +67,8 @@ config['emoj'] = {
 # args.app.replace(" ", "-")
 config['http']['upload_dir'] = Path("data") / "uploads"
 config['http']['share'] = args.share
-config['http']['host'], config['http']['port'] = args.host, args.port
+config['http']['host'] = args.host
+config['http']['port'] = args.port
 
 config['reranker']['enabled'] = args.reranker
 
@@ -133,7 +135,8 @@ def display_parameters(mode):
 
 #### 5. run
 with gr.Blocks(
-    title=config['app'], css=config['http'].get('css'), js=config['http'].get('js'),
+    title=config['app']['nmae'], css=config['http'].get('css'),
+    js=config['http'].get('js'),
 ) as webui:
     #param_info = {
     #    "temperature": {"type": "float", "description": "Creativity level", "default": 0.7},
