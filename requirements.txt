@@ -1,6 +1,5 @@
 #### tools
-#flake8
-#ipython
+flake8
 pyyaml
 gradio
 uuid
