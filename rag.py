@@ -112,16 +112,17 @@ def rag_query_docs(user_input, docs, parameters):
 def call_llm(messages, parameters):
     provider, model = parameters['llm']['selected_model'].split("/", 1)
     temperature = parameters['llm']['temperature']
+    llm_models = parameters['llm_models']
+
+    if found.get("hosted_vllm", False) is True:
+        provider = "hosted_vllm"
 
     print(f"{now()} call_llm: provider={provider}, model={model}, temperature={temperature}")
 
     found = next(
-        (v for v in parameters['llm_models'] if v['provider'] == provider and v['model'] == model),
+        (v for v in llm_models if v['provider'] == provider and v['model'] == model),
         None,
     )
-
-    if found.get("hosted_vllm", False) is True:
-        provider = "hosted_vllm"
 
     response = litellm.completion(
         custom_llm_provider=provider, model=model,

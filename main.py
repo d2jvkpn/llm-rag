@@ -5,7 +5,7 @@ os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
 from src.utils import now
-from chat import chat_func, ui_update_func
+from chat import chat_fn, ui_update_fn
 
 import yaml, litellm, uuid
 import gradio as gr
@@ -222,7 +222,7 @@ with gr.Blocks(
 
 
     rag_checkbox.change(
-        fn=ui_update_func('rag', 'enabled'),
+        fn=ui_update_fn('rag', 'enabled'),
         inputs=[parameters, rag_checkbox], outputs=[parameters],
     )
 
@@ -232,17 +232,17 @@ with gr.Blocks(
     #)
 
     max_tokens_input.change(
-        fn=ui_update_func("llm", "max_tokens", 20),
+        fn=ui_update_fn("llm", "max_tokens", 20),
         inputs=[parameters, max_tokens_input], outputs=[parameters],
     )
 
     temperature_slider.change(
-        fn=ui_update_func("llm", "temperature"),
+        fn=ui_update_fn("llm", "temperature"),
         inputs=[parameters, temperature_slider], outputs=[parameters],
     )
 
     model_selector.change(
-        fn=ui_update_func("llm", "selected_model"),
+        fn=ui_update_fn("llm", "selected_model"),
         inputs=[parameters, model_selector], outputs=[parameters],
     )
 
@@ -253,10 +253,10 @@ with gr.Blocks(
     ]
 
     # Submit message
-    send_button.click(fn=chat_func, inputs=inputs, outputs=[chatbot, user_input])
+    send_button.click(fn=chat_fn, inputs=inputs, outputs=[chatbot, user_input])
 
     # Allow pressing enter
-    user_input.submit(fn=chat_func, inputs=inputs, outputs=[chatbot, user_input])
+    user_input.submit(fn=chat_fn, inputs=inputs, outputs=[chatbot, user_input])
 
     # Clear inputs
     #clear_button.click(

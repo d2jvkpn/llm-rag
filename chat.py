@@ -7,10 +7,13 @@ from src.utils import now, file_md5
 
 
 ####
-def ui_update_func(sub, key, min_val=None):
+def ui_update_fn(sub, key, min_val=None, max_val=None):
     def fn(parameters, value):
-        if min_val and value < min_val:
+        if min_val is not None and value < min_val:
             value = min_val
+
+        if max_val is not None and value > max_val:
+            value = max_val
 
         print(f"<-- update {sub} {key}: {value}")
         parameters[sub][key] = value
@@ -75,7 +78,7 @@ def handle_user_input(user_input, uploaded_files, parameters):
     return (rag_outputs, user_input)
 
 
-def chat_func(history, user_input, uploaded_files, system_prompt, user_prompt, parameters):
+def chat_fn(history, user_input, uploaded_files, system_prompt, user_prompt, parameters):
     # print(f"<-- system_prompt: {system_prompt}")
     # print(f"<-- user_prompt: {user_prompt}")
     # print(f"<-- parematers: selected_model={selected_model}, rag={rag}")
