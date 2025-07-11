@@ -5,7 +5,7 @@ os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
 from src.utils import now
-from chat import chat_func
+from chat import chat_func, update_value, update_value_min
 
 import yaml, litellm, uuid
 import gradio as gr
@@ -128,25 +128,6 @@ def static_parameters():
     return "**Parameters**: " + \
         json.dumps({"embedding": embedding, "vector_db": vector_db, "reranker": reranker})
 
-def update_value(sub, key):
-    def fn(parameters, value):
-        print(f"<-- update {sub} {key}: {value}")
-        parameters[sub][key] = value
-        return parameters
-
-    return fn
-
-def update_value_min(sub, key, min_val=None):
-    def fn(parameters, value):
-        if min_val and value < min_val:
-            value = min_val
-
-        print(f"<-- update_value_min {sub} {key}: {value}")
-        parameters[sub][key] = value
-        return parameters
-
-    return fn
-
 # deprecated
 #def update_llm_textbox(parameters, key, value):
 #    #print(f"<-- update_llm {key}: {value}")
@@ -163,8 +144,8 @@ with gr.Blocks(
     #}
 
     upload_file_types = config['http']['upload_file_types']
-
     session_id = str(uuid.uuid4())
+
     parameters = gr.State({
         "emoj": copy.deepcopy(config['emoj']),
         "http": copy.deepcopy(config['http']),
@@ -172,10 +153,11 @@ with gr.Blocks(
         "qdrant": copy.deepcopy(config['qdrant']),
         "llm_models": copy.deepcopy(config['llm_models']),
 
-        "session_id": session_id,
+        "account": { "session_id": session_id },
         "llm": copy.deepcopy(config['llm']),
         "rag": copy.deepcopy(config['rag']),
     })
+
     print(f"{now()} new session created: {session_id}")
 
     with gr.Row():

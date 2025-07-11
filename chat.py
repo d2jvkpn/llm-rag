@@ -5,6 +5,26 @@ import rag
 from src.utils import now
 
 
+def update_value(sub, key):
+    def fn(parameters, value):
+        print(f"<-- update {sub} {key}: {value}")
+        parameters[sub][key] = value
+        return parameters
+
+    return fn
+
+def update_value_min(sub, key, min_val=None):
+    def fn(parameters, value):
+        if min_val and value < min_val:
+            value = min_val
+
+        print(f"<-- update_value_min {sub} {key}: {value}")
+        parameters[sub][key] = value
+        return parameters
+
+    return fn
+
+
 def handle_user_input(user_input, uploaded_files, parameters):
     if not parameters['rag']['enabled'] or not uploaded_files:
         return ([], [], user_input)
@@ -25,7 +45,6 @@ def handle_user_input(user_input, uploaded_files, parameters):
     return (docs_files, rag_outputs, user_input)
 
 
-#### 4. biz
 def chat_func(history, user_input, uploaded_files, system_prompt, user_prompt, parameters):
     # print(f"<-- system_prompt: {system_prompt}")
     # print(f"<-- user_prompt: {user_prompt}")
