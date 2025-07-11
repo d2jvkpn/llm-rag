@@ -142,6 +142,7 @@ with gr.Blocks(
 
     upload_file_types = config['http']['upload_file_types']
     session_id = str(uuid.uuid4())
+    print(f"{now()} new session created: {session_id}")
 
     parameters = gr.State({
         "emoj": copy.deepcopy(config['emoj']),
@@ -154,8 +155,6 @@ with gr.Blocks(
         "llm": copy.deepcopy(config['llm']),
         "rag": copy.deepcopy(config['rag']),
     })
-
-    print(f"{now()} new session created: {session_id}")
 
     with gr.Row():
         with gr.Column(scale=3, elem_classes=["my-column"]):
