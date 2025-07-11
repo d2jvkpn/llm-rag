@@ -2,7 +2,7 @@ local:
   venv: /home/ubuntu/apps/home.venv
 
 http:
-  upload_file_types: [".txt", ".pdf", ".docx", "pptx"]
+  upload_file_types: [".txt", ".pdf", ".docx", "pptx", ".md", ".epub"]
 
 llm_models:
 - provider: alibaba

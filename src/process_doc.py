@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import os, re
 
-import docx, pptx
+import docx, pptx, tiktoken, ebooklib
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
+from ebooklib import epub
+from bs4 import BeautifulSoup
 
 
 def doc_filename(path):
@@ -25,6 +27,8 @@ def document2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
         return pdf2chunks(path, doc_id, chunk_size, chunk_overlap)
     elif ext == "md":
         return md2chunks(path, doc_id, chunk_size, chunk_overlap)
+    elif ext == "epub":
+        return epub2chunks(path, doc_id, chunk_size)
     elif ext == "txt":
         with open(path, 'r', encoding='utf-8') as f:
             text = f.read()
@@ -132,7 +136,65 @@ def pdf2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
 
     meta = {
         "path": path, "doc_id": doc_id, "number_of_pages": number_of_pages,
-        "chunk_size": chunk_size, "chunk_overlap": chunk_overlap, "number_of_chunks": len(chunks),
+        "chunk_size": chunk_size, "chunk_overlap": chunk_overlap,
+        "number_of_chunks": len(chunks),
+    }
+
+    return { "chunks": chunks, "meta": meta }
+
+
+# gpt-3.5-turbo, gpt-4, text-davinci-003, cl100k_base
+def count_tokens(text, model_name="gpt-4"):
+    encoding = tiktoken.encoding_for_model(model_name)
+    return len(encoding.encode(text))
+
+def paragraphs_to_chunks(paragraphs, max_tokens):
+    chunks, current, count = [], "", 0
+
+    for p in paragraphs:
+        count += count_tokens(p)
+        current += p + "\n"
+
+        if count >= max_tokens:
+            chunks.append(current.strip())
+            current, count = "", 0
+
+    if current:
+        chunks.append(current.strip())
+
+    return chunks
+
+def epub2chunks(path, doc_id, chunk_size=1000):
+    def clean_text(text):
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
+    book, chunks = epub.read_epub(path), []
+
+    for item in book.get_items():
+        if item.get_type() == ebooklib.ITEM_DOCUMENT:
+            soup = BeautifulSoup(item.get_content(), "xml")
+            #tag = soup.find(['h1', 'h2', 'title'])
+            #title = tag.get_text(strip=True) if title_tag else "Untitled Chapter"
+
+            paragraphs = [
+                clean_text(p.get_text())
+                for p in soup.find_all("p") if p.get_text(strip=True)
+            ]
+
+            results = paragraphs_to_chunks(paragraphs, max_tokens=chunk_size)
+
+            for i, chunk in enumerate(results):
+                chunk = {
+                    "filename": doc_filename(path), "doc_id": doc_id,
+                    "chunk_id": f"{doc_id}-page0-c{i}", "text": chunk,
+                }
+                chunks.append(chunk)
+
+    meta = {
+        "path": path, "doc_id": doc_id, "number_of_pages": 0,
+        "chunk_size": chunk_size, "chunk_overlap": 0,
+        "number_of_chunks": len(chunks),
     }
 
     return { "chunks": chunks, "meta": meta }

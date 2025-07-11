@@ -14,7 +14,6 @@ def points_to_chunks(points):
 
     for p in points:
         chunk_id = p.payload['chunk_id']
-        # print("~~~", p.playload)
         filename = repr(p.payload['filename'])
 
         text = p.payload['text']
@@ -23,7 +22,7 @@ def points_to_chunks(points):
     return texts
 
 
-# docs: {path: , doc_id: }, steps: document2chunks, litellm_embedding, vectordb_save
+# docs: { path: , doc_id: }, steps: document2chunks, litellm_embedding, vectordb_save
 def embedding_doc(doc, collection):
     #doc_path = repr(doc['path'])
     ####

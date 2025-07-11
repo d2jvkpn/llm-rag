@@ -3,6 +3,8 @@ flake8
 pyyaml
 gradio
 uuid
+ebooklib
+beautifulsoup4
 
 #### clients
 qdrant-client

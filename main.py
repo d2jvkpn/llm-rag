@@ -7,11 +7,9 @@ from src import embed, local_llms
 from src.utils import now, get_local_ip
 from chat import chat_fn, ui_update_fn, ui_update_str
 
-import yaml, litellm, uuid
+import yaml, uuid # litellm
 import gradio as gr
 
-#py = os.path.abspath(os.sys.argv[0])
-#app = os.path.basename(os.path.dirname(py))
 
 #### 1. configuration
 parser = argparse.ArgumentParser(
@@ -88,8 +86,6 @@ config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
 #### 2. setup
 print(f"{now()} ==> args: {args}")
-if config["app"]["mode"] == "dev":
-    litellm._turn_on_debug()
 
 os.makedirs(config['http']['upload_dir'], exist_ok=True)
 # print(f"--> upload_dir: {config['http']['upload_dir']}")
