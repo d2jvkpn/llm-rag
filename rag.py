@@ -77,7 +77,7 @@ def embedding_doc(doc, collection):
 
 def rag_query_docs(user_input, docs, parameters):
     top_n = parameters['qdrant']['top_n']
-    top_k = parameters['reranker']['top_k']
+    limit = top_n*2 if parameters['reranker']['enabled'] else top_n
 
     for d in docs:
         embedding_doc(d, parameters['qdrant']['collection'])
@@ -85,13 +85,19 @@ def rag_query_docs(user_input, docs, parameters):
     doc_ids = [d['doc_id'] for d in docs]
 
     vector = embed.litellm_embedding([user_input])[0]['data'][0]['embedding']
-    hits = embed.search_doc(vector, doc_ids, top_n=top_n, score_threshold=0.5)
-    print(f"{now()} rag_query_docs/search_doc: {len(hits.points)}")
+    hits = embed.search_doc(
+        vector, doc_ids, top_n=limit,
+        score_threshold=parameters['qdrant']['score_threshold'],
+    )
+
+    print("{} rag_query_docs/search_doc: limit={}, top_n={}, hits={}".format(
+        now(), limit, top_n, len(hits.points),
+    ))
 
     if len(hits.points) == 0:
         return []
 
-    if not parameters['reranker']['enabled'] or len(hits.points) <= top_k:
+    if not parameters['reranker']['enabled'] or len(hits.points) <= top_n:
         return points_to_chunks(hits.points)
 
     #for p in hits.points:
@@ -102,9 +108,10 @@ def rag_query_docs(user_input, docs, parameters):
     #    #print(f"    text: {p.payload['text']}")
 
     texts = [p.payload['text'] for p in hits.points]
-    print(f"{now()} rag_query_docs/rerank_texts: {top_k}")
+    print(f"{now()} rag_query_docs/rerank_texts: {top_n}")
+
     scores = local_llms.rerank_texts(user_input, texts)
-    points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
+    points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_n]
 
     return points_to_chunks(points)
 

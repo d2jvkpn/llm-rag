@@ -35,10 +35,10 @@ qdrant:
   addr: http://ali-s01-sh.lan:6333
   # collection_name: auto-generated(f"{privider}__{model.replace(':', '--')}")
   top_n: 10
+  score_threshold: 0.5
 
 reranker:
   model: data/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2.model
-  top_k: 5
 
 llm:
   system_prompt: |

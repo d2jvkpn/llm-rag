@@ -18,7 +18,11 @@ def init(config): # yaml filepath
 
     #with open(filepath, 'r') as f:
     #    Config = yaml.safe_load(f)
-    QConf = config['qdrant']
+    QConf = {
+        'addr': config['qdrant']['addr'],
+        'collection': config['qdrant']['collection'],
+    }
+
     EmbeddingConf = config['embedding']
 
     QClient = QdrantClient(
@@ -146,7 +150,7 @@ def vectordb_save(doc, vectors, recreate=False):
     return doc
 
 
-def search_doc(vector, doc_ids, top_n=10, score_threshold=0.5):
+def search_doc(vector, doc_ids, top_n, score_threshold=0.5):
     collection = QConf['collection']
 
     #query_filter=qmodels.Filter(

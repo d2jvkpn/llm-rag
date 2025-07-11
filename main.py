@@ -4,7 +4,7 @@ from pathlib import Path
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
-from src.utils import now
+from src.utils import now, get_local_ip
 from chat import chat_fn, ui_update_fn, ui_update_str
 
 import yaml, litellm, uuid
@@ -30,7 +30,7 @@ parser.add_argument(
 )
 
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
-parser.add_argument("--port", help="http listening port", type=int, default=7860)
+parser.add_argument("--port", help="http listening port", type=int, default=7861)
 parser.add_argument("--share", help="gradio share", action="store_true")
 parser.add_argument("--debug", help="debug mode", action="store_true")
 
@@ -41,8 +41,8 @@ with open(args.config, 'r') as f:
 
 
 ##### dynamic parameters
-config['llm']['temperature'] = 0.5
-config['llm']['max_tokens'] = 1024
+config['llm']['temperature'] = 0.7
+config['llm']['max_tokens'] = 1000
 _model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
 config['llm']['model_choices'] = _model_choices
 config['llm']['selected_model'] = _model_choices[0]
@@ -108,15 +108,15 @@ if config['reranker']['enabled']:
 
 
 #### 3. functions
-def static_parameters():
+def static_parameters_full():
     d = config['embedding']
     embedding = { "provider": d['provider'], "model": d['model'] }
 
     d = config['qdrant']
-    vector_db = { "collection": d['collection'], "top_n": d['top_n'] }
+    vector_db = { "collection": d['collection'] }
 
     d = config['reranker']
-    reranker = { "enabled": d['enabled'], "top_k": d['top_k'] }
+    reranker = { "enabled": d['enabled'] }
 
     #strs = [
     #    f"- embedding: {json.dumps(embedding)}",
@@ -127,6 +127,16 @@ def static_parameters():
     #return "Parameters\n" + "\n".join(strs)
     return "**Parameters**: " + \
         json.dumps({"embedding": embedding, "vector_db": vector_db, "reranker": reranker})
+
+
+def static_parameters_simple():
+    d = config['reranker']
+    reranker = { "enabled": d['enabled'] }
+
+    #return "Parameters\n" + "\n".join(strs)
+    return "**Parameters**: " + \
+        json.dumps({ "reranker": reranker})
+
 
 #### 5. run
 with gr.Blocks(
@@ -144,10 +154,10 @@ with gr.Blocks(
         "emoj": copy.deepcopy(config['emoj']),
         "http": copy.deepcopy(config['http']),
         "reranker": copy.deepcopy(config['reranker']),
-        "qdrant": copy.deepcopy(config['qdrant']),
         "llm_models": copy.deepcopy(config['llm_models']),
 
         "account": { "session_id": session_id },
+        "qdrant": copy.deepcopy(config['qdrant']),
         "llm": copy.deepcopy(config['llm']),
         "rag": copy.deepcopy(config['rag']),
     })
@@ -167,24 +177,37 @@ with gr.Blocks(
             with gr.Row():
                 #clear_button = gr.Button("Clear", scale=1)
                 with gr.Row():
-                    temperature_slider = gr.Slider(
-                        label="Temperature",
-                        value=config['llm']['temperature'],
-                        minimum=0.0, maximum=1.5, step=0.1,
-                    )
-
                     max_tokens_input = gr.Number(
                         label="max_tokens(min=20)",
                         value=config['llm']['max_tokens'],
                         precision=1,
                     )
 
+                    temperature_slider = gr.Slider(
+                        label="temperature",
+                        value=config['llm']['temperature'],
+                        minimum=0.0, maximum=1.5, step=0.1,
+                    )
+
                 with gr.Row():
                     rag_checkbox = gr.Checkbox(label="RAG", value=config['rag']['enabled'])
 
+                    top_n_slider = gr.Slider(
+                        label="top n",
+                        value=config['qdrant']['top_n'],
+                        minimum=1, maximum=30, step=1,
+                    )
+
+                    score_threshold_slider = gr.Slider(
+                        label="score threshold",
+                        value=config['qdrant']['score_threshold'],
+                        minimum=0.1, maximum=1.0, step=0.01,
+                    )
+
+
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                lines=9, max_lines=9,
+                lines=10, max_lines=10,
                 value=config['llm']['user_prompt'],
             )
 
@@ -196,7 +219,7 @@ with gr.Blocks(
 
         with gr.Column(scale=7, elem_classes=["my-column"]):
             with gr.Row():
-                gr.Markdown(static_parameters())
+                gr.Markdown(static_parameters_simple())
                 #gr.ParamViewer(value=param_info)
 
             # height=600
@@ -224,6 +247,16 @@ with gr.Blocks(
     rag_checkbox.change(
         fn=ui_update_fn("rag", "enabled"),
         inputs=[parameters, rag_checkbox], outputs=[parameters],
+    )
+
+    top_n_slider.change(
+        fn=ui_update_fn("qdrant", "top_n"),
+        inputs=[parameters, top_n_slider], outputs=[parameters],
+    )
+
+    score_threshold_slider.change(
+        fn=ui_update_fn("qdrant", "score_threshold"),
+        inputs=[parameters, score_threshold_slider], outputs=[parameters],
     )
 
     #system_prompt_input.change(
@@ -273,7 +306,7 @@ with gr.Blocks(
     #)
 
 
-print(f"{now()} gradio is starting")
+print(f"{now()} gradio is starting: http://{get_local_ip()}:{config['http']['port']}")
 
 webui.launch(
     share=config['http']['share'],
