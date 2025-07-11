@@ -5,7 +5,7 @@ os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
 from src.utils import now
-from chat import chat_func, update_value, update_value_min
+from chat import chat_func, ui_update_func
 
 import yaml, litellm, uuid
 import gradio as gr
@@ -128,12 +128,6 @@ def static_parameters():
     return "**Parameters**: " + \
         json.dumps({"embedding": embedding, "vector_db": vector_db, "reranker": reranker})
 
-# deprecated
-#def update_llm_textbox(parameters, key, value):
-#    #print(f"<-- update_llm {key}: {value}")
-#    config['llm'][key] = value
-#    return value
-
 #### 5. run
 with gr.Blocks(
     title=config['app'], css=config['http'].get('css'), js=config['http'].get('js'),
@@ -228,7 +222,7 @@ with gr.Blocks(
 
 
     rag_checkbox.change(
-        fn=update_value('rag', 'enabled'),
+        fn=ui_update_func('rag', 'enabled'),
         inputs=[parameters, rag_checkbox], outputs=[parameters],
     )
 
@@ -238,17 +232,17 @@ with gr.Blocks(
     #)
 
     max_tokens_input.change(
-        fn=update_value_min("llm", "max_tokens", 20),
+        fn=ui_update_func("llm", "max_tokens", 20),
         inputs=[parameters, max_tokens_input], outputs=[parameters],
     )
 
     temperature_slider.change(
-        fn=update_value("llm", "temperature"),
+        fn=ui_update_func("llm", "temperature"),
         inputs=[parameters, temperature_slider], outputs=[parameters],
     )
 
     model_selector.change(
-        fn=update_value("llm", "selected_model"),
+        fn=ui_update_func("llm", "selected_model"),
         inputs=[parameters, model_selector], outputs=[parameters],
     )
 

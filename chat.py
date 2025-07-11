@@ -1,40 +1,70 @@
 #!/usr/bin/env python3
-import re
+import os, re, shutil
+from pathlib import Path
 
 import rag
-from src.utils import now
+from src.utils import now, file_md5
 
 
-def update_value(sub, key):
+####
+def ui_update_func(sub, key, min_val=None):
     def fn(parameters, value):
+        if min_val and value < min_val:
+            value = min_val
+
         print(f"<-- update {sub} {key}: {value}")
         parameters[sub][key] = value
         return parameters
 
     return fn
 
-def update_value_min(sub, key, min_val=None):
-    def fn(parameters, value):
-        if min_val and value < min_val:
-            value = min_val
+# deprecated
+#def update_llm_textbox(parameters, key, value):
+#    #print(f"<-- update_llm {key}: {value}")
+#    config['llm'][key] = value
+#    return value
 
-        print(f"<-- update_value_min {sub} {key}: {value}")
-        parameters[sub][key] = value
-        return parameters
+####
+def copy_gradio_files(paths, dirctory):
+    docs = []
 
-    return fn
+    for p in paths:
+        filename = Path(p).name
+        doc_id = "md5-" + file_md5(p)
+        #source_dir = os.path.dirname(p)
+        #target_dir = os.path.join(dirctory, os.path.basename(source_dir))
+        target_dir = Path(dirctory) / doc_id
+        target_path = target_dir / filename
+        # shutil.copy(p, save_path)
+        doc = { "path": target_path, "doc_id": doc_id, "exists": False }
+
+        if target_path.exists() and target_path.is_file():
+            doc['exists'] = True
+        else:
+            os.makedirs(target_dir, exist_ok=True)
+            print(f"{now()} copy_gradio_files: {p} -> {target_path}")
+            shutil.copy(p, target_path)
+
+        #if os.path.isdir(source_dir):
+        #    print(f"{now()} remove duplicated: {p}")
+        #    shutil.rmtree(source_dir)
+
+        docs.append(doc)
+
+    return docs
 
 
 def handle_user_input(user_input, uploaded_files, parameters):
     if not parameters['rag']['enabled'] or not uploaded_files:
-        return ([], [], user_input)
+        return ([], user_input)
 
-    docs_files, rag_outputs = rag.rag_query_docs(
-        user_input, uploaded_files, parameters,
-    )
+    paths = [v.name for v in uploaded_files]
+    docs = copy_gradio_files(paths, parameters['http']['upload_dir'])
+    # print(f"{now()} 📎 Uploaded: {docs}")
 
+    rag_outputs = rag.rag_query_docs(user_input, docs, parameters)
     if len(rag_outputs) == 0:
-        return (docs_files, [], user_input)
+        return ([], user_input)
 
     # print(f"<-- rag outputs: {rag_outputs}")
     texts = [f"#### {i+1}. {v}" for i, v in enumerate(rag_outputs)]
@@ -42,7 +72,7 @@ def handle_user_input(user_input, uploaded_files, parameters):
     user_prompt = parameters['llm']['user_prompt']
     user_input = f"{user_prompt}".format(input=user_input, context="\n\n".join(texts))
 
-    return (docs_files, rag_outputs, user_input)
+    return (rag_outputs, user_input)
 
 
 def chat_func(history, user_input, uploaded_files, system_prompt, user_prompt, parameters):
@@ -59,7 +89,7 @@ def chat_func(history, user_input, uploaded_files, system_prompt, user_prompt, p
     if user_input == "":
         return (history, "")
 
-    docs_files, rag_outputs, user_input = handle_user_input(user_input, uploaded_files, parameters)
+    rag_outputs, user_input = handle_user_input(user_input, uploaded_files, parameters)
 
     messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
 

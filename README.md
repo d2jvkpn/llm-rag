@@ -16,3 +16,8 @@ version: 0.1.2
 ```
 jq 'map(del(.data))' embedding_responses.collection.json
 ```
+
+3. next
+- logging
+- run in container
+- basic auth by using nginx

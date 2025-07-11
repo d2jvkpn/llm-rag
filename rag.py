@@ -1,40 +1,12 @@
 #!/usr/bin/env python3
-import os, json, shutil
+import json
 from pathlib import Path
 # os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms, process_doc
-from src.utils import now, file_md5
+from src.utils import now
 
 import litellm
-
-def copy_gradio_files(paths, dirctory):
-    docs = []
-
-    for p in paths:
-        filename = Path(p).name
-        doc_id = "md5-" + file_md5(p)
-        #source_dir = os.path.dirname(p)
-        #target_dir = os.path.join(dirctory, os.path.basename(source_dir))
-        target_dir = Path(dirctory) / doc_id
-        target_path = target_dir / filename
-        # shutil.copy(p, save_path)
-        doc = { "path": target_path, "doc_id": doc_id, "exists": False }
-
-        if target_path.exists() and target_path.is_file():
-            doc['exists'] = True
-        else:
-            os.makedirs(target_dir, exist_ok=True)
-            print(f"{now()} copy_gradio_files: {p} -> {target_path}")
-            shutil.copy(p, target_path)
-
-        #if os.path.isdir(source_dir):
-        #    print(f"{now()} remove duplicated: {p}")
-        #    shutil.rmtree(source_dir)
-
-        docs.append(doc)
-
-    return docs
 
 
 def points_to_chunks(points):
@@ -42,6 +14,7 @@ def points_to_chunks(points):
 
     for p in points:
         chunk_id = p.payload['chunk_id']
+        # print("~~~", p.playload)
         filename = repr(p.payload['filename'])
 
         text = p.payload['text']
@@ -102,13 +75,10 @@ def embedding_doc(doc, collection):
     embed.vectordb_save(doc_chunks, vectors, recreate=False)
 
 
-def rag_query_docs(user_input, uploaded_files, parameters):
+def rag_query_docs(user_input, docs, parameters):
     top_n = parameters['qdrant']['top_n']
     top_k = parameters['reranker']['top_k']
 
-    paths = [v.name for v in uploaded_files]
-    docs = copy_gradio_files(paths, parameters['http']['upload_dir'])
-    # print(f"{now()} 📎 Uploaded: {docs}")
     for d in docs:
         embedding_doc(d, parameters['qdrant']['collection'])
 
@@ -119,10 +89,10 @@ def rag_query_docs(user_input, uploaded_files, parameters):
     print(f"{now()} rag_query_docs/search_doc: {len(hits.points)}")
 
     if len(hits.points) == 0:
-        return (docs, [])
+        return []
 
     if not parameters['reranker']['enabled'] or len(hits.points) <= top_k:
-        return (docs, points_to_chunks(hits.points))
+        return points_to_chunks(hits.points)
 
     #for p in hits.points:
     #    chunk_id = p.payload['chunk_id']
@@ -136,7 +106,7 @@ def rag_query_docs(user_input, uploaded_files, parameters):
     scores = local_llms.rerank_texts(user_input, texts)
     points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
 
-    return (docs, points_to_chunks(points))
+    return points_to_chunks(points)
 
 
 def call_llm(messages, parameters):

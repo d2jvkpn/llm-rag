@@ -1,3 +1,47 @@
-FROM python:3.12
+####
+FROM python:3.12-slim AS builder
 
-TODO:
+WORKDIR /opt
+
+RUN cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bk && \
+  sed -i 's#http://\(deb\|security\).debian.org#https://mirrors.aliyun.com#g' \
+  /etc/apt/sources.list.d/debian.sources
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc python3-dev
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY assets ./assets
+COPY src ./src
+ADD chat.py main.py rag.py requirements.txt ./
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+####
+FROM python:3.12-slim
+
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+WORKDIR /opt
+COPY --chown=appuser:appuser --from=builder /opt .
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN useradd -m appuser && \
+    mkdir -p /opt/configs /opt/data /opt/logs && \
+    chown appuser:appuser /opt/configs /opt/data /opt/logs
+
+USER appuser
+
+VOLUME /opt/configs /opt/data /opt/logs
+EXPOSE 7860
+
+ENV PYTHONUNBUFFERED=1 PYTHONPATH=/opt
+
+#HEALTHCHECK --interval=30s --timeout=3s CMD python -c \
+#    "import requests; requests.get('http://localhost:7860/health', timeout=2)" || exit 1
+
+CMD ["python3", "main.py"]
