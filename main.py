@@ -135,7 +135,7 @@ def display_parameters(mode):
 
 #### 5. run
 with gr.Blocks(
-    title=config['app']['nmae'], css=config['http'].get('css'),
+    title=config['app']['name'], css=config['http'].get('css'),
     js=config['http'].get('js'),
 ) as webui:
     #param_info = {
