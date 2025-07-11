@@ -65,8 +65,7 @@ config['emoj'] = {
 # args.app.replace(" ", "-")
 config['http']['upload_dir'] = Path("data") / "uploads"
 config['http']['share'] = args.share
-config['http']['host'] = args.host
-config['http']['port'] = args.port
+config['http']['host'], config['http']['port'] = args.host, args.port
 
 config['reranker']['enabled'] = args.reranker
 
@@ -159,8 +158,7 @@ with gr.Blocks(
         with gr.Column(scale=3, elem_classes=["my-column"]):
             # gr.HTML('<h4 style="margin: 0"> Control panel </h4>')
             system_prompt_input = gr.Textbox(
-                interactive=True,
-                label="System Prompt", lines=6, max_lines=6,
+                interactive=True, label="System Prompt", lines=6, max_lines=6,
                 value=config['llm']['system_prompt'],
             )
 
@@ -180,8 +178,7 @@ with gr.Blocks(
 
                     temperature_slider = gr.Slider(
                         label="temperature",
-                        value=config['llm']['temperature'],
-                        minimum=0.0, maximum=1.5, step=0.1,
+                        value=config['llm']['temperature'], minimum=0.0, maximum=1.5, step=0.1,
                     )
 
                 with gr.Row():
@@ -189,8 +186,7 @@ with gr.Blocks(
 
                     top_n_slider = gr.Slider(
                         label="top n",
-                        value=config['qdrant']['top_n'],
-                        minimum=1, maximum=30, step=1,
+                        value=config['qdrant']['top_n'], minimum=1, maximum=30, step=1,
                     )
 
                     score_threshold_slider = gr.Slider(
@@ -217,8 +213,7 @@ with gr.Blocks(
             with gr.Row(elem_id="my-input"):
                 with gr.Column(scale=9):
                     user_input = gr.Textbox(
-                        show_label=False,
-                        label="User input", lines=4, max_lines=4,
+                        show_label=False, label="User input", lines=4, max_lines=4,
                         placeholder="Type your message here...",
                     )
 
@@ -226,8 +221,7 @@ with gr.Blocks(
                     send_button = gr.Button("Send", variant="secondary")
 
                     model_selector = gr.Dropdown(
-                        interactive=True, show_label=False,
-                        label="Select Model",
+                        interactive=True, show_label=False, label="Select Model",
                         value=config['llm']['selected_model'],
                         choices=config['llm']['model_choices'],
                     )
