@@ -287,7 +287,7 @@ with gr.Blocks(
     #clear_button.click(
     #    fn=lambda: ("", "", None, []),
     #    inputs=[],
-    #    outputs=[system_prompt_input, user_prompt_input, uploaded_files, chatbot]
+    #    outputs=[system_prompt_input, user_prompt_input, uploaded_files, chatbot],
     #)
 
 
