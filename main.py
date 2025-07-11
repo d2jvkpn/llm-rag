@@ -32,7 +32,8 @@ parser.add_argument(
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
 parser.add_argument("--port", help="http listening port", type=int, default=7861)
 parser.add_argument("--share", help="gradio share", action="store_true")
-parser.add_argument("--debug", help="debug mode", action="store_true")
+#parser.add_argument("--debug", help="debug mode", action="store_true")
+parser.add_argument("--mode", help="running mode", default="dev")
 
 args = parser.parse_args()
 
@@ -53,7 +54,7 @@ config['rag'] = { "enabled": False }
 
 
 #### static parameters
-config['app'] = args.app
+config['app'] = { "name": args.app, "mode": args.mode }
 
 # emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶
 config['emoj'] = {
@@ -86,7 +87,7 @@ config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
 #### 2. setup
 print(f"{now()} ==> args: {args}")
-if args.debug:
+if config["app"]["mode"] == "dev":
     litellm._turn_on_debug()
 
 os.makedirs(config['http']['upload_dir'], exist_ok=True)
@@ -108,7 +109,13 @@ if config['reranker']['enabled']:
 
 
 #### 3. functions
-def static_parameters_full():
+def display_parameters(mode):
+    #strs = [
+    #    f"- embedding: {json.dumps(embedding)}",
+    #    f"- vector_db: {json.dumps(vector_db)}",
+    #    f"- reranker: {json.dumps(reranker)}",
+    #]
+
     d = config['embedding']
     embedding = { "provider": d['provider'], "model": d['model'] }
 
@@ -116,27 +123,14 @@ def static_parameters_full():
     vector_db = { "collection": d['collection'] }
 
     d = config['reranker']
-    reranker = { "enabled": d['enabled'] }
+    reranker = { "model": os.path.basename(d['model']), "enabled": d['enabled'] }
 
-    #strs = [
-    #    f"- embedding: {json.dumps(embedding)}",
-    #    f"- vector_db: {json.dumps(vector_db)}",
-    #    f"- reranker: {json.dumps(reranker)}",
-    #]
+    parameters = {"reranker": reranker }
+    if mode == "dev":
+        parameters = {"reranker": reranker, "embedding": embedding, "vector_db": vector_db }
 
     #return "Parameters\n" + "\n".join(strs)
-    return "**Parameters**: " + \
-        json.dumps({"embedding": embedding, "vector_db": vector_db, "reranker": reranker})
-
-
-def static_parameters_simple():
-    d = config['reranker']
-    reranker = { "enabled": d['enabled'] }
-
-    #return "Parameters\n" + "\n".join(strs)
-    return "**Parameters**: " + \
-        json.dumps({ "reranker": reranker})
-
+    return "**Parameters**: " + json.dumps(parameters)
 
 #### 5. run
 with gr.Blocks(
@@ -167,11 +161,16 @@ with gr.Blocks(
     with gr.Row():
         with gr.Column(scale=3, elem_classes=["my-column"]):
             # gr.HTML('<h4 style="margin: 0"> Control panel </h4>')
-
             system_prompt_input = gr.Textbox(
                 interactive=True,
                 label="System Prompt", lines=6, max_lines=6,
                 value=config['llm']['system_prompt'],
+            )
+
+            user_prompt_input = gr.Textbox(
+                label="User Prompt for RAG, keep placeholder {input} and {context}",
+                lines=10, max_lines=10,
+                value=config['llm']['user_prompt'],
             )
 
             with gr.Row():
@@ -205,12 +204,6 @@ with gr.Blocks(
                     )
 
 
-            user_prompt_input = gr.Textbox(
-                label="User Prompt for RAG, keep placeholder {input} and {context}",
-                lines=10, max_lines=10,
-                value=config['llm']['user_prompt'],
-            )
-
             uploaded_files = gr.File(
                 label=f"Upload docs for RAG: {', '.join(upload_file_types)}",
                 file_types=upload_file_types, file_count="multiple",
@@ -219,7 +212,7 @@ with gr.Blocks(
 
         with gr.Column(scale=7, elem_classes=["my-column"]):
             with gr.Row():
-                gr.Markdown(static_parameters_simple())
+                gr.Markdown(display_parameters(config['app']['mode']))
                 #gr.ParamViewer(value=param_info)
 
             # height=600
@@ -243,7 +236,34 @@ with gr.Blocks(
                         choices=config['llm']['model_choices'],
                     )
 
+    #system_prompt_input.change(
+    #    fn=lambda value: update_llm_textbox("system_prompt", value),
+    #    inputs=system_prompt_input, outputs=system_prompt_input,
+    #)
 
+    ####
+    system_prompt_input.change(
+        fn=ui_update_str("llm", "system_prompt"),
+        inputs=[parameters, system_prompt_input], outputs=[parameters],
+    )
+
+    user_prompt_input.change(
+        fn=ui_update_str("llm", "user_prompt"),
+        inputs=[parameters, user_prompt_input], outputs=[parameters],
+    )
+
+    ####
+    max_tokens_input.change(
+        fn=ui_update_fn("llm", "max_tokens", 20),
+        inputs=[parameters, max_tokens_input], outputs=[parameters],
+    )
+
+    temperature_slider.change(
+        fn=ui_update_fn("llm", "temperature"),
+        inputs=[parameters, temperature_slider], outputs=[parameters],
+    )
+
+    ####
     rag_checkbox.change(
         fn=ui_update_fn("rag", "enabled"),
         inputs=[parameters, rag_checkbox], outputs=[parameters],
@@ -257,31 +277,6 @@ with gr.Blocks(
     score_threshold_slider.change(
         fn=ui_update_fn("qdrant", "score_threshold"),
         inputs=[parameters, score_threshold_slider], outputs=[parameters],
-    )
-
-    #system_prompt_input.change(
-    #    fn=lambda value: update_llm_textbox("system_prompt", value),
-    #    inputs=system_prompt_input, outputs=system_prompt_input,
-    #)
-
-    system_prompt_input.change(
-        fn=ui_update_str("llm", "system_prompt"),
-        inputs=[parameters, system_prompt_input], outputs=[parameters],
-    )
-
-    user_prompt_input.change(
-        fn=ui_update_str("llm", "user_prompt"),
-        inputs=[parameters, user_prompt_input], outputs=[parameters],
-    )
-
-    max_tokens_input.change(
-        fn=ui_update_fn("llm", "max_tokens", 20),
-        inputs=[parameters, max_tokens_input], outputs=[parameters],
-    )
-
-    temperature_slider.change(
-        fn=ui_update_fn("llm", "temperature"),
-        inputs=[parameters, temperature_slider], outputs=[parameters],
     )
 
     model_selector.change(
