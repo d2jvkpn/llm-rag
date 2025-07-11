@@ -107,7 +107,7 @@ def vectordb_save(doc, vectors, recreate=False):
     if not QClient.collection_exists(collection):
         vectors_config = qmodels.VectorParams(
             size=dimension,
-            distance=qmodels.Distance.COSINE,
+            distance=qmodels.Distance.COSINE, # Dot, Euclid, Manhattan
             on_disk=True,
         )
 

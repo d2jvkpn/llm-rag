@@ -178,12 +178,17 @@ def chat_fn(history, user_input, uploaded_files, parameters):
     # answer = user_input.upper() # Just a dummy response
     # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
     response = rag.call_llm(messages, parameters)
+    usage = response.usage
     ans = response.choices[0].message
+
+    print("<-- llm tokens usage: prompt={}, completion={}, total={}".format(
+        usage.prompt_tokens, usage.completion_tokens, usage.total_tokens,
+    ))
 
     reply_content = "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
         parameters['emoj']['ai'], now(), repr(parameters['llm']['selected_model']),
-        response.usage.prompt_tokens, response.usage.completion_tokens,
-        response.usage.total_tokens, ans.content,
+        usage.prompt_tokens, usage.completion_tokens,
+        usage.total_tokens, ans.content,
     )
 
     reply = {"role": ans.role, "content": reply_content }

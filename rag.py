@@ -13,13 +13,23 @@ def points_to_chunks(points):
     texts = []
 
     for p in points:
-        chunk_id = p.payload['chunk_id']
-        filename = repr(p.payload['filename'])
-
-        text = p.payload['text']
-        texts.append(f"chunk_id={chunk_id}, filename={filename}\n```text\n{text}\n```")
+        d = p.payload
+        texts.append("chunk_id={}, score={:.3f}, filename={}\n```text\n{}\n```".format(
+            d['chunk_id'], p.score, repr(d['filename']), d['text'],
+        ))
 
     return texts
+
+
+def embeding_tokens_usage(responses):
+    usage = [0, 0, 0]
+
+    for r in responses:
+        usage[0] += r.usage.prompt_tokens
+        usage[1] += r.usage.completion_tokens
+        usage[2] += r.usage.total_tokens
+
+    return { "prompt_tokens": usage[0], "completion_tokens": usage[1], "total_tokens": usage[2] }
 
 
 # docs: { path: , doc_id: }, steps: document2chunks, litellm_embedding, vectordb_save
@@ -63,6 +73,9 @@ def embedding_doc(doc, collection):
 
         with open(json_file, 'w', encoding="utf-8") as f:
             json.dump(embedding_responses, f, ensure_ascii=False)
+
+        usage = embeding_tokens_usage(embedding_responses)
+        print(f"{now()} <-- embedding tokens usage: {usage}")
 
     vectors = []
     for response in embedding_responses:

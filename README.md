@@ -9,7 +9,7 @@ version: 0.1.2
 
 #### ch01. 
 1. docs
-- a. 
+- https://qdrant.tech/documentation/advanced-tutorials/reranking-hybrid-search/
 
 2. commandlines
 - embedding_responses meta
