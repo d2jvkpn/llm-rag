@@ -178,8 +178,7 @@ with gr.Blocks(
                 with gr.Row():
                     max_tokens_input = gr.Number(
                         label="max_tokens(min=20)",
-                        value=config['llm']['max_tokens'],
-                        precision=1,
+                        value=config['llm']['max_tokens'], precision=1,
                     )
 
                     temperature_slider = gr.Slider(
