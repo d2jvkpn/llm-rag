@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import os, json, shutil
 from pathlib import Path
+# os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms, process_doc
 from src.utils import now, file_md5
 
+import litellm
 
 def copy_gradio_files(paths, dirctory):
     docs = []
@@ -100,15 +102,15 @@ def embedding_doc(doc, collection):
     embed.vectordb_save(doc_chunks, vectors, recreate=False)
 
 
-def rag_query_docs(user_input, uploaded_files, settings):
-    top_n = settings['top_n']
-    top_k = settings['top_k']
+def rag_query_docs(user_input, uploaded_files, parameters):
+    top_n = parameters['qdrant']['top_n']
+    top_k = parameters['reranker']['top_k']
 
     paths = [v.name for v in uploaded_files]
-    docs = copy_gradio_files(paths, settings['upload_dir'])
+    docs = copy_gradio_files(paths, parameters['http']['upload_dir'])
     # print(f"{now()} 📎 Uploaded: {docs}")
     for d in docs:
-        embedding_doc(d, settings['collection'])
+        embedding_doc(d, parameters['qdrant']['collection'])
 
     doc_ids = [d['doc_id'] for d in docs]
 
@@ -119,7 +121,7 @@ def rag_query_docs(user_input, uploaded_files, settings):
     if len(hits.points) == 0:
         return (docs, [])
 
-    if not settings['enabled'] or len(hits.points) <= top_k:
+    if not parameters['reranker']['enabled'] or len(hits.points) <= top_k:
         return (docs, points_to_chunks(hits.points))
 
     #for p in hits.points:
@@ -135,3 +137,28 @@ def rag_query_docs(user_input, uploaded_files, settings):
     points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_k]
 
     return (docs, points_to_chunks(points))
+
+
+def call_llm(messages, parameters):
+    provider, model = parameters['llm']['selected_model'].split("/", 1)
+    temperature = parameters['llm']['temperature']
+
+    print(f"{now()} call_llm: provider={provider}, model={model}, temperature={temperature}")
+
+    found = next(
+        (v for v in parameters['llm_models'] if v['provider'] == provider and v['model'] == model),
+        None,
+    )
+
+    if found.get("hosted_vllm", False) is True:
+        provider = "hosted_vllm"
+
+    response = litellm.completion(
+        custom_llm_provider=provider, model=model,
+        api_base=found.get("api_base"), api_key=found.get("api_key"),
+        max_tokens=parameters['llm']['max_tokens'], temperature=temperature,
+        num_retries=3, timeout=60, stream=False,
+        messages=messages,
+    )
+
+    return response

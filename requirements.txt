@@ -3,6 +3,7 @@
 #ipython
 pyyaml
 gradio
+uuid
 
 #### clients
 qdrant-client

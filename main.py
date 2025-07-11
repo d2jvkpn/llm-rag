@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-import os, argparse, re, json, copy # time, shutil
+import os, argparse, json, copy # time, shutil
 from pathlib import Path
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
 from src.utils import now
-import rag
+from chat import chat_func
 
-import yaml, litellm
+import yaml, litellm, uuid
 import gradio as gr
 
 #py = os.path.abspath(os.sys.argv[0])
 #app = os.path.basename(os.path.dirname(py))
-
 
 #### 1. configuration
 parser = argparse.ArgumentParser(
@@ -36,8 +35,6 @@ parser.add_argument("--share", help="gradio share", action="store_true")
 parser.add_argument("--debug", help="debug mode", action="store_true")
 
 args = parser.parse_args()
-if args.debug:
-    litellm._turn_on_debug()
 
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
@@ -46,9 +43,9 @@ with open(args.config, 'r') as f:
 ##### dynamic parameters
 config['llm']['temperature'] = 0.5
 config['llm']['max_tokens'] = 1024
-moddel_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
-config['llm']['model_choices'] = moddel_choices
-config['llm']['selected_model'] = moddel_choices[0]
+_model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
+config['llm']['model_choices'] = _model_choices
+config['llm']['selected_model'] = _model_choices[0]
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
 config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
@@ -65,12 +62,13 @@ config['emoj'] = {
   "rag": "📚",
 }
 
-config['upload_dir'] = Path("data") / "uploads" # args.app.replace(" ", "-")
-config['reranker']['enabled'] = args.reranker
-
+# args.app.replace(" ", "-")
+config['http']['upload_dir'] = Path("data") / "uploads"
 config['http']['share'] = args.share
 config['http']['host'] = args.host
 config['http']['port'] = args.port
+
+config['reranker']['enabled'] = args.reranker
 
 css = Path("assets") / "style.css"
 if css.exists():
@@ -82,10 +80,34 @@ if js.exists():
     with open(js, 'r') as f:
         config['http']['js'] = f.read()
 
-
 _model = Path(config['embedding']['model']).name.replace(':', '--')
 config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
+
+#### 2. setup
+print(f"{now()} ==> args: {args}")
+if args.debug:
+    litellm._turn_on_debug()
+
+os.makedirs(config['http']['upload_dir'], exist_ok=True)
+# print(f"--> upload_dir: {config['http']['upload_dir']}")
+
+embed.init(config)
+
+if args.delete_collection:
+    collection = config['qdrant']['collection']
+
+    if embed.QClient.collection_exists(collection):
+        print(f"--> deleting collection: {collection}")
+        embed.QClient.delete_collection(collection)
+
+if config['reranker']['enabled']:
+    print(f"{now()} init_reranker:", config['reranker']['model'])
+    local_llms.init_reranker(config['reranker']['model'])
+    print(f"{now()} reranker initialized")
+
+
+#### 3. functions
 def static_parameters():
     d = config['embedding']
     embedding = { "provider": d['provider'], "model": d['model'] }
@@ -106,180 +128,30 @@ def static_parameters():
     return "**Parameters**: " + \
         json.dumps({"embedding": embedding, "vector_db": vector_db, "reranker": reranker})
 
-
-#### 2. setup
-print(f"{now()} ==> args: {args}")
-
-os.makedirs(config['upload_dir'], exist_ok=True)
-# print(f"--> upload_dir: {config['upload_dir']}")
-
-
-embed.init(config)
-
-if args.delete_collection:
-    collection = config['qdrant']['collection']
-
-    if embed.QClient.collection_exists(collection):
-        print(f"--> deleting collection: {collection}")
-        embed.QClient.delete_collection(collection)
-
-
-if config['reranker']['enabled']:
-    print(f"{now()} init_reranker:", config['reranker']['model'])
-    local_llms.init_reranker(config['reranker']['model'])
-    print(f"{now()} reranker initialized")
-
-
-#### 3. functions
-def call_llm(messages, parameters):
-    provider, model = parameters['llm']['selected_model'].split("/", 1)
-    temperature = parameters['llm']['temperature']
-    print(f"{now()} call_llm: provider={provider}, model={model}, temperature={temperature}")
-
-    found = next(
-        (v for v in config['llm_models'] if v['provider'] == provider and v['model'] == model),
-        None,
-    )
-
-    if found.get("hosted_vllm", False) is True:
-        provider = "hosted_vllm"
-
-    response = litellm.completion(
-        custom_llm_provider=provider, model=model,
-        api_base=found.get("api_base"), api_key=found.get("api_key"),
-        max_tokens=parameters['llm']['max_tokens'], temperature=temperature,
-        num_retries=3, timeout=60, stream=False,
-        messages=messages,
-    )
-
-    return response
-
-
-def handle_user_input(parameters, uploaded_files, user_input):
-    if not parameters['rag']['enabled'] or not uploaded_files:
-        return ([], [], user_input)
-
-    docs_files, rag_outputs = rag.rag_query_docs(
-        user_input, uploaded_files,
-        {
-          "top_n": config['qdrant']['top_n'],
-          "top_k": config['reranker']['top_k'],
-          "enabled": config['reranker']['enabled'],
-          "upload_dir": config['upload_dir'],
-          "collection": config['qdrant']['collection'],
-        },
-    )
-
-    if len(rag_outputs) == 0:
-        return (docs_files, [], user_input)
-
-    # print(f"<-- rag outputs: {rag_outputs}")
-    texts = [f"#### {i+1}. {v}" for i, v in enumerate(rag_outputs)]
-
-    user_prompt = parameters['llm']['user_prompt']
-    user_input = f"{user_prompt}".format(input=user_input, context="\n\n".join(texts))
-
-    return (docs_files, rag_outputs, user_input)
-
-
-#### 4. biz
-def chat_func(history, user_input, uploaded_files, system_prompt, user_prompt, parameters):
-    # print(f"<-- system_prompt: {system_prompt}")
-    # print(f"<-- user_prompt: {user_prompt}")
-    # print(f"<-- parematers: selected_model={selected_model}, rag={rag}")
-
-    # print(f"~~~ parameters: {parameters}")
-    # TODO: how to add extract messages to history
-    parameters['llm']['system_prompt'] = system_prompt
-    parameters['llm']['user_prompt'] = user_prompt
-
-    user_input = user_input.strip()
-    if user_input == "":
-        return (history, "")
-
-    docs_files, rag_outputs, user_input = handle_user_input(parameters, uploaded_files, user_input)
-
-    messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
-
-    for m in (history[-10:] if len(history) > 10 else history):
-        # extract user_input only for rag message
-        content = m['content'].split("\n", 1)[-1]
-
-        if m['role'] == "user" and m['content'].startswith(config['emoj']['rag']):
-            match = re.search(r"Input:\s*(.*?)\s*Context:", content, re.DOTALL)
-            if match:
-                content = match.group(1).strip()
-
-        messages.append({"role": m['role'], "content": content})
-
-    msg = { "role": "user", "content": user_input }
-    messages.append(msg)
-    # print(f"<-- messages: {messages}")
-
-    # Just a dummy response
-    # answer = user_input.upper()
-    # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
-    response = call_llm(messages, parameters)
-    ans = response.choices[0].message
-
-    reply = {
-        "role": ans.role,
-        "content": "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
-            config['emoj']['ai'], now(), repr(parameters['llm']['selected_model']), 
-            response.usage.prompt_tokens, response.usage.completion_tokens,
-            response.usage.total_tokens, ans.content,
-        ),
-    }
-
-    if parameters['rag']['enabled']:
-        msg['content'] = "{}: {}, temperature={}, matches={}\n{}".format(
-            config['emoj']['ai'], now(),
-            parameters['llm']['temperature'], len(rag_outputs), msg['content'],
-        )
-    else:
-        msg['content'] = "{}: {}, temperature={}\n{}".format(
-            config['emoj']['user'], now(),
-            parameters['llm']['temperature'], msg['content'],
-        )
-
-    history.extend([msg, reply])
-    #time.sleep(5)
-
-    return (history, "")
-
-
-def update_rag(key):
+def update_value(sub, key):
     def fn(parameters, value):
-        print(f"<-- update_rag {key}: {value}")
-        parameters['rag'][key] = value
+        print(f"<-- update {sub} {key}: {value}")
+        parameters[sub][key] = value
         return parameters
 
     return fn
 
-def update_llm(key):
-    def fn(parameters, value):
-        print(f"<-- update_llm {key}: {value}")
-        parameters['llm'][key] = value
-        return parameters
-
-    return fn
-
-def update_llm_min(key, min_val=None):
+def update_value_min(sub, key, min_val=None):
     def fn(parameters, value):
         if min_val and value < min_val:
             value = min_val
 
-        print(f"<-- update_llm_min {key}: {value}")
-        parameters['llm'][key] = value
+        print(f"<-- update_value_min {sub} {key}: {value}")
+        parameters[sub][key] = value
         return parameters
 
     return fn
 
 # deprecated
-def update_llm_textbox(parameters, key, value):
-    #print(f"<-- update_llm {key}: {value}")
-    config['llm'][key] = value
-    return value
+#def update_llm_textbox(parameters, key, value):
+#    #print(f"<-- update_llm {key}: {value}")
+#    config['llm'][key] = value
+#    return value
 
 #### 5. run
 with gr.Blocks(
@@ -292,10 +164,19 @@ with gr.Blocks(
 
     upload_file_types = config['http']['upload_file_types']
 
+    session_id = str(uuid.uuid4())
     parameters = gr.State({
+        "emoj": copy.deepcopy(config['emoj']),
+        "http": copy.deepcopy(config['http']),
+        "reranker": copy.deepcopy(config['reranker']),
+        "qdrant": copy.deepcopy(config['qdrant']),
+        "llm_models": copy.deepcopy(config['llm_models']),
+
+        "session_id": session_id,
         "llm": copy.deepcopy(config['llm']),
         "rag": copy.deepcopy(config['rag']),
     })
+    print(f"{now()} new session created: {session_id}")
 
     with gr.Row():
         with gr.Column(scale=3, elem_classes=["my-column"]):
@@ -365,7 +246,7 @@ with gr.Blocks(
 
 
     rag_checkbox.change(
-        fn=update_rag('enabled'),
+        fn=update_value('rag', 'enabled'),
         inputs=[parameters, rag_checkbox], outputs=[parameters],
     )
 
@@ -375,17 +256,17 @@ with gr.Blocks(
     #)
 
     max_tokens_input.change(
-        fn=update_llm_min("max_tokens", 20),
+        fn=update_value_min("llm", "max_tokens", 20),
         inputs=[parameters, max_tokens_input], outputs=[parameters],
     )
 
     temperature_slider.change(
-        fn=update_llm("temperature"),
+        fn=update_value("llm", "temperature"),
         inputs=[parameters, temperature_slider], outputs=[parameters],
     )
 
     model_selector.change(
-        fn=update_llm("selected_model"),
+        fn=update_value("llm", "selected_model"),
         inputs=[parameters, model_selector], outputs=[parameters],
     )
 
