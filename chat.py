@@ -25,6 +25,14 @@ def ui_update_fn(sub, key, min_val=None, max_val=None):
 
     return fn
 
+def ui_update_str(sub, key):
+    def fn(parameters, value):
+        #print(f"<-- update {sub} {key}: {value}")
+        parameters[sub][key] = value.strip()
+        return parameters
+
+    return fn
+
 # deprecated
 #def update_llm_textbox(parameters, key, value):
 #    #print(f"<-- update_llm {key}: {value}")
@@ -78,9 +86,10 @@ def copy_gradio_files(paths, dirctory):
         doc_id = "md5-" + file_md5(p)
         #source_dir = os.path.dirname(p)
         #target_dir = os.path.join(dirctory, os.path.basename(source_dir))
+
         target_dir = Path(dirctory) / doc_id
         target_path = target_dir / filename
-        # shutil.copy(p, save_path)
+
         doc = { "path": target_path, "doc_id": doc_id, "exists": False }
 
         if target_path.exists() and target_path.is_file():
@@ -100,9 +109,6 @@ def copy_gradio_files(paths, dirctory):
 
 
 def handle_user_input(user_input, uploaded_files, parameters):
-    if not parameters['rag']['enabled'] or not uploaded_files:
-        return ([], user_input)
-
     paths = [v.name for v in uploaded_files]
     docs = copy_gradio_files(paths, parameters['http']['upload_dir'])
     # print(f"{now()} 📎 Uploaded: {docs}")
@@ -125,23 +131,33 @@ def handle_user_input(user_input, uploaded_files, parameters):
     return (rag_outputs, user_input)
 
 
-def chat_fn(history, user_input, uploaded_files, system_prompt, user_prompt, parameters):
+def chat_fn(history, user_input, uploaded_files, parameters):
     # print(f"<-- system_prompt: {system_prompt}")
     # print(f"<-- user_prompt: {user_prompt}")
     # print(f"<-- parematers: selected_model={selected_model}, rag={rag}")
 
     # print(f"~~~ parameters: {parameters}")
     # TODO: how to add extract messages to history
-    parameters['llm']['system_prompt'] = system_prompt
-    parameters['llm']['user_prompt'] = user_prompt
+
+    #### 1. init
+    system_prompt = parameters['llm']['system_prompt']
+    user_prompt = parameters['llm']['user_prompt']
+    rag_enabled = parameters['rag']['enabled']
 
     user_input = user_input.strip()
     if user_input == "":
         return (history, "")
 
-    rag_outputs, user_input = handle_user_input(user_input, uploaded_files, parameters)
+    #### 2. rag
+    if not rag_enabled or not uploaded_files or len(user_prompt) == 0:
+        rag_enabled = False
+    else:
+        rag_outputs, user_input = handle_user_input(user_input, uploaded_files, parameters)
 
-    messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
+    #### 3. llm
+    messages = []
+    if len(system_prompt) > 0:
+        messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
 
     for m in (history[-10:] if len(history) > 10 else history):
         # extract user_input only for rag message
@@ -158,25 +174,24 @@ def chat_fn(history, user_input, uploaded_files, system_prompt, user_prompt, par
     messages.append(msg)
     # print(f"<-- messages: {messages}")
 
-    # Just a dummy response
-    # answer = user_input.upper()
+    #### 4. output
+    # answer = user_input.upper() # Just a dummy response
     # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
     response = rag.call_llm(messages, parameters)
     ans = response.choices[0].message
 
-    reply = {
-        "role": ans.role,
-        "content": "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
-            parameters['emoj']['ai'], now(), repr(parameters['llm']['selected_model']),
-            response.usage.prompt_tokens, response.usage.completion_tokens,
-            response.usage.total_tokens, ans.content,
-        ),
-    }
+    reply_content = "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
+        parameters['emoj']['ai'], now(), repr(parameters['llm']['selected_model']),
+        response.usage.prompt_tokens, response.usage.completion_tokens,
+        response.usage.total_tokens, ans.content,
+    )
 
-    if parameters['rag']['enabled']:
-        msg['content'] = "{}: {}, temperature={}, matches={}\n{}".format(
+    reply = {"role": ans.role, "content": reply_content }
+
+    if rag_enabled:
+        msg['content'] = "{}: {}, temperature={}\n{}".format(
             parameters['emoj']['ai'], now(),
-            parameters['llm']['temperature'], len(rag_outputs), msg['content'],
+            parameters['llm']['temperature'], msg['content'],
         )
     else:
         msg['content'] = "{}: {}, temperature={}\n{}".format(
@@ -187,4 +202,5 @@ def chat_fn(history, user_input, uploaded_files, system_prompt, user_prompt, par
     history.extend([msg, reply])
     #time.sleep(5)
 
+    #### 5. return
     return (history, "")

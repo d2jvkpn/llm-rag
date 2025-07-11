@@ -5,7 +5,7 @@ os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
 from src.utils import now
-from chat import chat_fn, ui_update_fn
+from chat import chat_fn, ui_update_fn, ui_update_str
 
 import yaml, litellm, uuid
 import gradio as gr
@@ -222,7 +222,7 @@ with gr.Blocks(
 
 
     rag_checkbox.change(
-        fn=ui_update_fn('rag', 'enabled'),
+        fn=ui_update_fn("rag", "enabled"),
         inputs=[parameters, rag_checkbox], outputs=[parameters],
     )
 
@@ -230,6 +230,16 @@ with gr.Blocks(
     #    fn=lambda value: update_llm_textbox("system_prompt", value),
     #    inputs=system_prompt_input, outputs=system_prompt_input,
     #)
+
+    system_prompt_input.change(
+        fn=ui_update_str("llm", "system_prompt"),
+        inputs=[parameters, system_prompt_input], outputs=[parameters],
+    )
+
+    user_prompt_input.change(
+        fn=ui_update_str("llm", "user_prompt"),
+        inputs=[parameters, user_prompt_input], outputs=[parameters],
+    )
 
     max_tokens_input.change(
         fn=ui_update_fn("llm", "max_tokens", 20),
@@ -247,10 +257,7 @@ with gr.Blocks(
     )
 
     ####
-    inputs = [
-        chatbot, user_input, uploaded_files, system_prompt_input,
-        user_prompt_input, parameters,
-    ]
+    inputs = [ chatbot, user_input, uploaded_files, parameters ]
 
     # Submit message
     send_button.click(fn=chat_fn, inputs=inputs, outputs=[chatbot, user_input])
