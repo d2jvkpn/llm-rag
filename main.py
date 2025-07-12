@@ -128,6 +128,7 @@ def display_parameters(mode):
     #return "Parameters\n" + "\n".join(strs)
     return "**Parameters**: " + json.dumps(parameters)
 
+
 #### 5. run
 with gr.Blocks(
     title=config['app']['name'], css=config['http'].get('css'),
@@ -139,8 +140,6 @@ with gr.Blocks(
     #}
 
     upload_file_types = config['http']['upload_file_types']
-    session_id = str(uuid.uuid4())
-    print(f"{now()} new session created: {session_id}")
 
     parameters = gr.State({
         "emoj": copy.deepcopy(config['emoj']),
@@ -148,7 +147,7 @@ with gr.Blocks(
         "reranker": copy.deepcopy(config['reranker']),
         "llm_models": copy.deepcopy(config['llm_models']),
 
-        "account": { "session_id": session_id },
+        "account": { },
         "qdrant": copy.deepcopy(config['qdrant']),
         "llm": copy.deepcopy(config['llm']),
         "rag": copy.deepcopy(config['rag']),
@@ -204,27 +203,25 @@ with gr.Blocks(
 
         with gr.Column(scale=7, elem_classes=["my-column"]):
             with gr.Row():
-                gr.Markdown(display_parameters(config['app']['mode']))
+                model_selector = gr.Dropdown(
+                    interactive=True, show_label=False, label="Select Model",
+                    value=config['llm']['selected_model'],
+                    choices=config['llm']['model_choices'],
+                    scale=1,
+                )
+
+                with gr.Column(scale=4):
+                    gr.Markdown(display_parameters(config['app']['mode']))
                 #gr.ParamViewer(value=param_info)
 
             # height=600
             chatbot = gr.Chatbot(label="AI Assistant", type='messages', elem_id="my-chatbot")
 
-            with gr.Row(elem_id="my-input"):
-                with gr.Column(scale=9):
-                    user_input = gr.Textbox(
-                        show_label=False, label="User input", lines=4, max_lines=4,
-                        placeholder="Type your message here...",
-                    )
-
-                with gr.Column(scale=1, min_width=250):
-                    send_button = gr.Button("Send", variant="secondary")
-
-                    model_selector = gr.Dropdown(
-                        interactive=True, show_label=False, label="Select Model",
-                        value=config['llm']['selected_model'],
-                        choices=config['llm']['model_choices'],
-                    )
+            gr.ChatInterface(
+                chat_fn, type="messages", chatbot=chatbot, multimodal=False,
+                additional_inputs=[uploaded_files, parameters], additional_outputs=[chatbot],
+                autofocus=True,
+            )
 
     #system_prompt_input.change(
     #    fn=lambda value: update_llm_textbox("system_prompt", value),
@@ -273,23 +270,6 @@ with gr.Blocks(
         fn=ui_update_fn("llm", "selected_model"),
         inputs=[parameters, model_selector], outputs=[parameters],
     )
-
-    ####
-    inputs = [ chatbot, user_input, uploaded_files, parameters ]
-
-    # Submit message
-    send_button.click(fn=chat_fn, inputs=inputs, outputs=[chatbot, user_input])
-
-    # Allow pressing enter
-    user_input.submit(fn=chat_fn, inputs=inputs, outputs=[chatbot, user_input])
-
-    # Clear inputs
-    #clear_button.click(
-    #    fn=lambda: ("", "", None, []),
-    #    inputs=[],
-    #    outputs=[system_prompt_input, user_prompt_input, uploaded_files, chatbot],
-    #)
-
 
 print(f"{now()} gradio is starting: http://{get_local_ip()}:{config['http']['port']}")
 

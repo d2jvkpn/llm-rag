@@ -131,12 +131,12 @@ def handle_user_input(user_input, uploaded_files, parameters):
     return (rag_outputs, user_input)
 
 
-def chat_fn(history, user_input, uploaded_files, parameters):
+def chat_fn(user_input, history, uploaded_files, parameters):
+    # user_input = {"text": "hello", "files":["'/tmp/gradio/4d..."]} # when multimodal=True
     # print(f"<-- system_prompt: {system_prompt}")
     # print(f"<-- user_prompt: {user_prompt}")
     # print(f"<-- parematers: selected_model={selected_model}, rag={rag}")
 
-    # print(f"~~~ parameters: {parameters}")
     # TODO: how to add extract messages to history
 
     #### 1. init
@@ -146,7 +146,7 @@ def chat_fn(history, user_input, uploaded_files, parameters):
 
     user_input = user_input.strip()
     if user_input == "":
-        return (history, "")
+        return ({"role": "assitant", "content": "" }, history)
 
     #### 2. rag
     if not rag_enabled or not uploaded_files or len(user_prompt) == 0:
@@ -208,4 +208,4 @@ def chat_fn(history, user_input, uploaded_files, parameters):
     #time.sleep(5)
 
     #### 5. return
-    return (history, "")
+    return (reply, history)
