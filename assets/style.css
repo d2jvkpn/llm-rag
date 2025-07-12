@@ -6,3 +6,7 @@
 #my-input {
   height: 5vh;
 }
+
+#toggle-panel {
+  max-width: 20px;
+}

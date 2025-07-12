@@ -129,6 +129,10 @@ def display_parameters(mode):
     return "**Parameters**: " + json.dumps(parameters)
 
 
+def panel_visibility(current_state):
+    new_state = not current_state
+    return gr.update(visible=new_state), new_state
+
 #### 5. run
 with gr.Blocks(
     title=config['app']['name'], css=config['http'].get('css'),
@@ -153,8 +157,10 @@ with gr.Blocks(
         "rag": copy.deepcopy(config['rag']),
     })
 
+    panel_state = gr.State(False)
+
     with gr.Row():
-        with gr.Column(scale=3, elem_classes=["my-column"]):
+        with gr.Column(scale=3, elem_classes=["my-column"], visible=True) as panel_column:
             # gr.HTML('<h4 style="margin: 0"> Control panel </h4>')
             system_prompt_input = gr.Textbox(
                 interactive=True, label="System Prompt", lines=6, max_lines=6,
@@ -203,14 +209,16 @@ with gr.Blocks(
 
         with gr.Column(scale=7, elem_classes=["my-column"]):
             with gr.Row():
+                toggle_panel = gr.Button("Panel", elem_id="toggle-panel")
+
                 model_selector = gr.Dropdown(
                     interactive=True, show_label=False, label="Select Model",
                     value=config['llm']['selected_model'],
                     choices=config['llm']['model_choices'],
-                    scale=1,
+                    elem_id="model-selector", scale=2,
                 )
 
-                with gr.Column(scale=4):
+                with gr.Column(scale=8):
                     gr.Markdown(display_parameters(config['app']['mode']))
                 #gr.ParamViewer(value=param_info)
 
@@ -270,6 +278,13 @@ with gr.Blocks(
         fn=ui_update_fn("llm", "selected_model"),
         inputs=[parameters, model_selector], outputs=[parameters],
     )
+
+    toggle_panel.click(
+        fn=panel_visibility,
+        inputs=[panel_state],
+        outputs=[panel_column, panel_state]
+    )
+
 
 print(f"{now()} gradio is starting: http://{get_local_ip()}:{config['http']['port']}")
 
