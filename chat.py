@@ -182,7 +182,7 @@ def chat_fn(user_input, history, uploaded_files, parameters):
         rag_enabled = False
     else:
         rag_outputs, rag_prompt = handle_user_input(user_input, uploaded_files, parameters)
-        if parameters['rag']['display']:
+        if parameters['rag']['verbose']:
             user_input = rag_prompt
 
     #### 3. call llm
@@ -206,9 +206,10 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     # print(f"<-- messages: {messages}")
 
     if rag_enabled:
-        msg['content'] = "{}: {}, temperature={}\n{}".format(
-            parameters['emoj']['ai'], now(),
-            parameters['llm']['temperature'], msg['content'],
+        msg['content'] = "{}: {}, temperature={}, rag_found={}\n{}".format(
+            parameters['emoj']['rag'], now(),
+            parameters['llm']['temperature'], len(rag_outputs),
+            msg['content'],
         )
     else:
         msg['content'] = "{}: {}, temperature={}\n{}".format(

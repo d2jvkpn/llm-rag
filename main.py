@@ -67,7 +67,7 @@ config['llm']['selected_model'] = _model_choices[0]
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
 config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
-config['rag'] = { "enabled": False, "display": False }
+config['rag'] = { "enabled": False, "verbose": False }
 
 css = Path("assets") / "style.css"
 if css.exists():
@@ -199,7 +199,7 @@ with gr.Blocks(
 
                 with gr.Row():
                     rag_checkbox = gr.Checkbox(label="RAG", value=config['rag']['enabled'])
-                    rag_display = gr.Checkbox(label="display", value=config['rag']['display'])
+                    rag_verbose = gr.Checkbox(label="verbose", value=config['rag']['verbose'])
 
                     top_n_slider = gr.Slider(
                         label="top n",
@@ -275,9 +275,9 @@ with gr.Blocks(
         inputs=[parameters, rag_checkbox], outputs=[parameters],
     )
 
-    rag_display.change(
-        fn=ui_update_fn("rag", "display"),
-        inputs=[parameters, rag_display], outputs=[parameters],
+    rag_verbose.change(
+        fn=ui_update_fn("rag", "verbose"),
+        inputs=[parameters, rag_verbose], outputs=[parameters],
     )
 
     top_n_slider.change(
