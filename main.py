@@ -21,6 +21,7 @@ parser.add_argument("--app", help="app name", default="RAG-Gradio")
 parser.add_argument("--version", help="app version", default="0.1.3")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
+parser.add_argument("--prompt", help="prompt name in configs/prompts.yaml", default="default")
 parser.add_argument("--rag", help="enable rag", action="store_true")
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
 
@@ -41,32 +42,39 @@ args = parser.parse_args()
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
 
+with open(Path("configs") / "prompts.yaml", 'r') as f:
+    prompts = yaml.safe_load(f)
+
 # static parameters
 config['app'] = { "name": args.app, "version": args.version, "mode": args.mode }
 
 # emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶
 config['emoj'] = {
-  "user": "📝",
-  "ai": "✨",
-  "rag": "📚",
+    "user": "📝",
+    "ai": "✨",
+    "rag": "📚",
 }
 
 # args.app.replace(" ", "-")
 config['http']['upload_dir'] = Path("data") / "uploads"
 config['http']['share'] = args.share
-config['http']['host'], config['http']['port'] = args.host, args.port
+config['http']['host'] = args.host
+config['http']['port'] = args.port
 
 config['reranker']['enabled'] = args.reranker
 
 # dynamic parameters
+config['llm'] = {
+    "system_prompt": prompts[args.prompt]['system_prompt'].strip(),
+    "user_prompt": prompts[args.prompt]['user_prompt'].strip(),
+}
+
 config['llm']['stream'] = True
 config['llm']['temperature'] = 0.7
 config['llm']['max_tokens'] = 1000
 _model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
 config['llm']['model_choices'] = _model_choices
 config['llm']['selected_model'] = _model_choices[0]
-config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
-config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
 config['rag'] = { "enabled": args.rag, "verbose": False }
 
@@ -112,6 +120,15 @@ def display_parameters(mode):
     #    f"- vector_db: {json.dumps(vector_db)}",
     #    f"- reranker: {json.dumps(reranker)}",
     #]
+    d = config['reranker']
+    reranker = { "model": os.path.basename(d['model']), "enabled": d['enabled'] }
+
+    if mode != "dev":
+        parameters = {
+            "version": config['app']['version'],
+            "reranker": { "enabled": reranker['enabled'] },
+        }
+        return "**Parameters**: " + json.dumps(parameters)
 
     d = config['embedding']
     embedding = { "provider": d['provider'], "model": d['model'] }
@@ -119,12 +136,10 @@ def display_parameters(mode):
     d = config['qdrant']
     vector_db = { "collection": d['collection'] }
 
-    d = config['reranker']
-    reranker = { "model": os.path.basename(d['model']), "enabled": d['enabled'] }
-
-    parameters = {"reranker": reranker }
-    if mode == "dev":
-        parameters = {"reranker": reranker, "embedding": embedding, "vector_db": vector_db }
+    parameters = {
+        "version": config['app']['version'], "reranker": reranker,
+        "embedding": embedding, "vector_db": vector_db,
+    }
 
     #return "Parameters\n" + "\n".join(strs)
     return "**Parameters**: " + json.dumps(parameters)
