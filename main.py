@@ -58,6 +58,7 @@ config['http']['host'], config['http']['port'] = args.host, args.port
 config['reranker']['enabled'] = args.reranker
 
 # dynamic parameters
+config['llm']['stream'] = True
 config['llm']['temperature'] = 0.7
 config['llm']['max_tokens'] = 1000
 _model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
@@ -146,6 +147,7 @@ with gr.Blocks(
     upload_file_types = config['http']['upload_file_types']
 
     parameters = gr.State({
+        "app": copy.deepcopy(config['app']),
         "emoj": copy.deepcopy(config['emoj']),
         "http": copy.deepcopy(config['http']),
         "reranker": copy.deepcopy(config['reranker']),
@@ -176,6 +178,8 @@ with gr.Blocks(
             with gr.Row():
                 #clear_button = gr.Button("Clear", scale=1)
                 with gr.Row():
+                    stream_checkbox = gr.Checkbox(label="Stream", value=config['llm']['stream'])
+
                     max_tokens_input = gr.Number(
                         label="max_tokens(min=20)",
                         value=config['llm']['max_tokens'], precision=1,
@@ -226,9 +230,10 @@ with gr.Blocks(
             chatbot = gr.Chatbot(label="AI Assistant", type='messages', elem_id="my-chatbot")
 
             gr.ChatInterface(
-                chat_fn, type="messages", chatbot=chatbot, multimodal=False,
-                additional_inputs=[uploaded_files, parameters], additional_outputs=[chatbot],
-                autofocus=True,
+                chat_fn, type="messages", chatbot=chatbot,
+                additional_inputs=[uploaded_files, parameters],
+                additional_outputs=[chatbot],
+                multimodal=False, autofocus=True,
             )
 
     #system_prompt_input.change(
@@ -248,6 +253,11 @@ with gr.Blocks(
     )
 
     ####
+    stream_checkbox.change(
+        fn=ui_update_fn("llm", "stream"),
+        inputs=[parameters, stream_checkbox], outputs=[parameters],
+    )
+
     max_tokens_input.change(
         fn=ui_update_fn("llm", "max_tokens", 20),
         inputs=[parameters, max_tokens_input], outputs=[parameters],

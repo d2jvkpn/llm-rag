@@ -128,9 +128,9 @@ def handle_user_input(user_input, uploaded_files, parameters):
     texts = [f"#### {i+1}. {v}" for i, v in enumerate(rag_outputs)]
 
     user_prompt = parameters['llm']['user_prompt']
-    user_input = f"{user_prompt}".format(input=user_input, context="\n\n".join(texts))
+    rag_prompt = f"{user_prompt}".format(input=user_input, context="\n\n".join(texts))
 
-    return (rag_outputs, user_input)
+    return (rag_outputs, rag_prompt)
 
 
 def call_llm(messages, parameters, stream=False):
@@ -171,6 +171,7 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     system_prompt = parameters['llm']['system_prompt']
     user_prompt = parameters['llm']['user_prompt']
     rag_enabled = parameters['rag']['enabled']
+    stream = parameters['llm']['stream']
 
     user_input = user_input.strip()
     if user_input == "":
@@ -180,9 +181,11 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     if not rag_enabled or not uploaded_files or len(user_prompt) == 0:
         rag_enabled = False
     else:
-        rag_outputs, user_input = handle_user_input(user_input, uploaded_files, parameters)
+        rag_outputs, rag_prompt = handle_user_input(user_input, uploaded_files, parameters)
+        if parameters['app']['mode'] == 'dev':
+            user_input = rag_prompt
 
-    #### 3. llm
+    #### 3. call llm
     messages = []
     if len(system_prompt) > 0:
         messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
@@ -202,25 +205,6 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     messages.append(msg)
     # print(f"<-- messages: {messages}")
 
-    #### 4. output
-    # answer = user_input.upper() # Just a dummy response
-    # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
-    response = call_llm(messages, parameters, False)
-    usage = response.usage
-    ans = response.choices[0].message
-
-    print("<-- llm tokens usage: prompt={}, completion={}, total={}".format(
-        usage.prompt_tokens, usage.completion_tokens, usage.total_tokens,
-    ))
-
-    reply_content = "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
-        parameters['emoj']['ai'], now(), repr(parameters['llm']['selected_model']),
-        usage.prompt_tokens, usage.completion_tokens,
-        usage.total_tokens, ans.content,
-    )
-
-    reply = {"role": ans.role, "content": reply_content }
-
     if rag_enabled:
         msg['content'] = "{}: {}, temperature={}\n{}".format(
             parameters['emoj']['ai'], now(),
@@ -232,8 +216,40 @@ def chat_fn(user_input, history, uploaded_files, parameters):
             parameters['llm']['temperature'], msg['content'],
         )
 
-    history.extend([msg, reply])
-    #time.sleep(5)
+    history.append(msg)
 
-    #### 5. return
-    return (reply, history)
+    #### 4. output
+    # answer = user_input.upper() # Just a dummy response
+    # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
+    response = call_llm(messages, parameters, stream)
+
+    if stream:
+        reply_content = "{}: {}, model={}\n".format(
+            parameters['emoj']['ai'], now(), repr(parameters['llm']['selected_model'])
+        )
+
+        for chunk in response:
+            delta = chunk.choices[0].delta.content or ""
+            reply_content += delta
+            reply = {"role": "assistant", "content": reply_content }
+            yield reply, history + [reply]
+    else:
+        usage = response.usage
+        ans = response.choices[0].message
+
+        print("<-- llm tokens usage: prompt={}, completion={}, total={}".format(
+            usage.prompt_tokens, usage.completion_tokens, usage.total_tokens,
+        ))
+
+        reply_content = "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
+            parameters['emoj']['ai'], now(), repr(parameters['llm']['selected_model']),
+            usage.prompt_tokens, usage.completion_tokens,
+            usage.total_tokens, ans.content,
+        )
+
+        reply = {"role": ans.role, "content": reply_content }
+        history.append(reply)
+        # history.extend([msg, reply])
+        #time.sleep(5)
+
+        yield (reply, history) # Don't use return here

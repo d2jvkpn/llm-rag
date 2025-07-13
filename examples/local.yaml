@@ -34,7 +34,7 @@ embedding:
 qdrant:
   addr: http://ali-s01-sh.lan:6333
   # collection_name: auto-generated(f"{privider}__{model.replace(':', '--')}")
-  top_n: 10
+  top_n: 5
   score_threshold: 0.5
 
 reranker:
