@@ -21,6 +21,7 @@ parser.add_argument("--app", help="app name", default="RAG-Gradio")
 parser.add_argument("--version", help="app version", default="0.1.3")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
+parser.add_argument("--rag", help="enable rag", action="store_true")
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
 
 parser.add_argument(
@@ -67,7 +68,7 @@ config['llm']['selected_model'] = _model_choices[0]
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
 config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
-config['rag'] = { "enabled": False, "verbose": False }
+config['rag'] = { "enabled": args.rag, "verbose": False }
 
 css = Path("assets") / "style.css"
 if css.exists():
