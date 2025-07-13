@@ -168,8 +168,8 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     # TODO: how to add extract messages to history
 
     #### 1. init
-    system_prompt = parameters['llm']['system_prompt']
-    user_prompt = parameters['llm']['user_prompt']
+    system_prompt = parameters['llm']['system_prompt'].strip()
+    user_prompt = parameters['llm']['user_prompt'].strip()
     rag_enabled = parameters['rag']['enabled']
     stream = parameters['llm']['stream']
 
@@ -178,9 +178,8 @@ def chat_fn(user_input, history, uploaded_files, parameters):
         return ({"role": "assitant", "content": "" }, history)
 
     #### 2. rag
-    if not rag_enabled or not uploaded_files or len(user_prompt) == 0:
-        rag_enabled = False
-    else:
+    rag_outputs = []
+    if rag_enabled and uploaded_files and len(user_prompt) > 0:
         rag_outputs, rag_prompt = handle_user_input(user_input, uploaded_files, parameters)
         if parameters['rag']['verbose']:
             user_input = rag_prompt
@@ -235,20 +234,21 @@ def chat_fn(user_input, history, uploaded_files, parameters):
             reply = {"role": "assistant", "content": reply_content }
             yield reply, history + [reply]
     else:
+        answer = response.choices[0].message
         usage = response.usage
-        ans = response.choices[0].message
 
         print("<-- llm tokens usage: prompt={}, completion={}, total={}".format(
             usage.prompt_tokens, usage.completion_tokens, usage.total_tokens,
         ))
 
         reply_content = "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(
-            parameters['emoj']['ai'], now(), repr(parameters['llm']['selected_model']),
-            usage.prompt_tokens, usage.completion_tokens,
-            usage.total_tokens, ans.content,
+            parameters['emoj']['ai'], now(),
+            repr(parameters['llm']['selected_model']), usage.prompt_tokens,
+            usage.completion_tokens, usage.total_tokens,
+            answer.content,
         )
 
-        reply = {"role": ans.role, "content": reply_content }
+        reply = { "role": answer.role, "content": reply_content }
         history.append(reply)
         # history.extend([msg, reply])
         #time.sleep(5)

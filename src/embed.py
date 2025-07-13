@@ -13,6 +13,7 @@ from qdrant_client import QdrantClient, models as qmodels
 
 QConf, QClient = {}, None
 
+
 def init(config): # yaml filepath
     global QConf, QClient, EmbeddingConf
 
@@ -87,6 +88,7 @@ def vectordb_doc_exists(doc_id):
 
     hits = QClient.scroll(collection_name=collection, scroll_filter=selector, limit=1)
     return len(hits[0]) > 0
+
 
 def vectordb_save(doc, vectors, recreate=False):
     assert(len(doc['chunks']) == len(vectors))

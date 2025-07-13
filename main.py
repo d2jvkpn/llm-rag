@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 
-parser.add_argument("--app", help="app name", default="RAG-Gradio")
+parser.add_argument("--app", help="app name", default="RAG-Alpha")
 parser.add_argument("--version", help="app version", default="0.1.3")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
