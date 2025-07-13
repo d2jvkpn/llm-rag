@@ -25,12 +25,6 @@ parser.add_argument("--prompt", help="prompt name in configs/prompts.yaml", defa
 parser.add_argument("--rag", help="enable rag", action="store_true")
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
 
-parser.add_argument(
-    "--delete-collection",
-    help="delete collection in vector database",
-    action="store_true",
-)
-
 parser.add_argument("--host", help="http listening host", default="127.0.0.1")
 parser.add_argument("--port", help="http listening port", type=int, default=7861)
 parser.add_argument("--share", help="gradio share", action="store_true")
@@ -51,7 +45,7 @@ config['app'] = { "name": args.app, "version": args.version, "mode": args.mode }
 # emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶
 config['emoj'] = {
     "user": "📝",
-    "ai": "✨",
+    "ai": "🤖",
     "rag": "📚",
 }
 
@@ -99,13 +93,6 @@ os.makedirs(config['http']['upload_dir'], exist_ok=True)
 # print(f"--> upload_dir: {config['http']['upload_dir']}")
 
 embed.init(config)
-
-if args.delete_collection:
-    collection = config['qdrant']['collection']
-
-    if embed.QClient.collection_exists(collection):
-        print(f"--> deleting collection: {collection}")
-        embed.QClient.delete_collection(collection)
 
 if config['reranker']['enabled']:
     print(f"{now()} init_reranker:", config['reranker']['model'])
