@@ -67,7 +67,7 @@ config['llm']['selected_model'] = _model_choices[0]
 config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
 config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
 
-config['rag'] = { "enabled": False }
+config['rag'] = { "enabled": False, "display": False }
 
 css = Path("assets") / "style.css"
 if css.exists():
@@ -178,7 +178,14 @@ with gr.Blocks(
             with gr.Row():
                 #clear_button = gr.Button("Clear", scale=1)
                 with gr.Row():
-                    stream_checkbox = gr.Checkbox(label="Stream", value=config['llm']['stream'])
+                    model_selector = gr.Dropdown(
+                        interactive=True, show_label=True, label="Select Model",
+                        value=config['llm']['selected_model'],
+                        choices=config['llm']['model_choices'],
+                        elem_id="model-selector", scale=2,
+                    )
+
+                    stream_checkbox = gr.Checkbox(label="stream", value=config['llm']['stream'])
 
                     max_tokens_input = gr.Number(
                         label="max_tokens(min=20)",
@@ -192,6 +199,7 @@ with gr.Blocks(
 
                 with gr.Row():
                     rag_checkbox = gr.Checkbox(label="RAG", value=config['rag']['enabled'])
+                    rag_display = gr.Checkbox(label="display", value=config['rag']['display'])
 
                     top_n_slider = gr.Slider(
                         label="top n",
@@ -214,13 +222,6 @@ with gr.Blocks(
         with gr.Column(scale=7, elem_classes=["my-column"]):
             with gr.Row():
                 toggle_panel = gr.Button("Panel", elem_id="toggle-panel")
-
-                model_selector = gr.Dropdown(
-                    interactive=True, show_label=False, label="Select Model",
-                    value=config['llm']['selected_model'],
-                    choices=config['llm']['model_choices'],
-                    elem_id="model-selector", scale=2,
-                )
 
                 with gr.Column(scale=8):
                     gr.Markdown(display_parameters(config['app']['mode']))
@@ -272,6 +273,11 @@ with gr.Blocks(
     rag_checkbox.change(
         fn=ui_update_fn("rag", "enabled"),
         inputs=[parameters, rag_checkbox], outputs=[parameters],
+    )
+
+    rag_display.change(
+        fn=ui_update_fn("rag", "display"),
+        inputs=[parameters, rag_display], outputs=[parameters],
     )
 
     top_n_slider.change(

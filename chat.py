@@ -182,7 +182,7 @@ def chat_fn(user_input, history, uploaded_files, parameters):
         rag_enabled = False
     else:
         rag_outputs, rag_prompt = handle_user_input(user_input, uploaded_files, parameters)
-        if parameters['app']['mode'] == 'dev':
+        if parameters['rag']['display']:
             user_input = rag_prompt
 
     #### 3. call llm
