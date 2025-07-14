@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-import os, argparse
+import os, argparse, json
 from pathlib import Path
+
+from src import process_doc
 
 import yaml
 from qdrant_client import QdrantClient # models as qmodels
 
 
 if len(os.sys.argv) == 1:
-    print("!!! command is required: delete")
+    print("!!! command is required: delete, read_doc")
     os.sys.exit(1)
 
 command = os.sys.argv[1]
@@ -19,6 +21,7 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("--config", help="config filepath", default=Path("configs") / "local.yaml")
 parser.add_argument("--force", help="without interactive", action="store_true")
+parser.add_argument('--values', nargs='+')
 
 args = parser.parse_args(os.sys.argv[2:])
 
@@ -45,6 +48,11 @@ if command == "delete":
         client.delete_collection(collection)
     else:
         print(f"!!! qdrant collecton exixts: {collection}")
+elif command == "read_doc":
+    for p in args.values:
+        doc = process_doc.document2chunks(p, "md5-xxxx")
+        text = json.dumps(doc, ensure_ascii=False, indent=2)
+        print(text)
 else:
     print(f"!!! unknown command: {command}")
     os.sys.exit(1)

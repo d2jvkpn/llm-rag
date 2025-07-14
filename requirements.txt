@@ -21,3 +21,4 @@ langchain-community
 pypdf
 python-docx
 python-pptx
+odfpy
