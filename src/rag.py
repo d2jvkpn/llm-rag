@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import json
+import os, sys, json
 from pathlib import Path
+sys.path.append(os.path.dirname(__file__))
 
-from src import embed, local_llms, process_doc
-from src.utils import now
+import embed, local_llms, process_doc
+from utils import now
 
 
 def points_to_chunks(points):

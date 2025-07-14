@@ -5,7 +5,7 @@ os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
 from src.utils import now
-from chat import chat_fn, ui_update_fn, ui_update_str
+from src.chat import chat_fn, ui_update_fn, ui_update_str
 
 import yaml # uuid, litellm
 import gradio as gr

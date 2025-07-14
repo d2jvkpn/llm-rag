@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-import os, re, shutil
+import os, sys, re, shutil
 from pathlib import Path
 # os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
+sys.path.append(os.path.dirname(__file__))
 
 import rag
-from src.utils import now, file_md5
+from utils import now, file_md5
 
 import litellm
 
