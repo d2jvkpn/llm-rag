@@ -216,7 +216,7 @@ with gr.Blocks(
 
 
             uploaded_files = gr.File(
-                label=f"Upload docs for RAG: {', '.join(upload_file_types)}",
+                label=f"Upload docs: {', '.join(upload_file_types)}",
                 file_types=upload_file_types, file_count="multiple",
             )
 

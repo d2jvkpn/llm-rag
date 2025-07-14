@@ -3,6 +3,7 @@ import os, argparse, json
 from pathlib import Path
 
 from src import process_doc
+from src.utils import file_md5
 
 import yaml
 from qdrant_client import QdrantClient # models as qmodels
@@ -50,7 +51,8 @@ if command == "delete":
         print(f"!!! qdrant collecton exixts: {collection}")
 elif command == "read_doc":
     for p in args.values:
-        doc = process_doc.document2chunks(p, "md5-xxxx")
+        md5 = file_md5(p)
+        doc = process_doc.document2chunks(p, f"md5-{md5}")
         text = json.dumps(doc, ensure_ascii=False, indent=2)
         print(text)
 else:

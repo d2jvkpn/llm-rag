@@ -75,7 +75,7 @@ def md2chunks(path, doc_id, chunk_size, chunk_overlap):
     for i in range(len(docs)):
         payload = {
             "filename": filename, "doc_id": doc_id,
-            "chunk_id": f"{doc_id}-page0-c{i}", "text": docs[i],
+            "chunk_id": f"{doc_id}-page0-c{i}", "text": docs[i].page_content,
         }
 
         chunks.append(payload)
