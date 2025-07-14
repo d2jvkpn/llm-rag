@@ -138,7 +138,10 @@ def call_llm(messages, parameters, stream=False):
     temperature = parameters['llm']['temperature']
     llm_models = parameters['llm_models']
 
-    print(f"{now()} call_llm: provider={provider}, model={model}, temperature={temperature}")
+    print("{} call_llm: provider={}, model={}, temperature={}, content={}".format(
+        now(), provider, model, temperature,
+        repr(messages[-1]['content']),
+    ))
 
     found = next(
         (v for v in llm_models if v['provider'] == provider and v['model'] == model),
@@ -163,7 +166,7 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     # user_input = {"text": "hello", "files":["'/tmp/gradio/4d..."]} # when multimodal=True
     # print(f"<-- system_prompt: {system_prompt}")
     # print(f"<-- user_prompt: {user_prompt}")
-    # print(f"<-- parematers: selected_model={selected_model}, rag={rag}")
+    # print(f"<-- chat_fn: uploaded_files={uploaded_files}, parameters={parameters}")
 
     # TODO: how to add extract messages to history
 
@@ -202,7 +205,13 @@ def chat_fn(user_input, history, uploaded_files, parameters):
 
     msg = { "role": "user", "content": user_input }
     messages.append(msg)
+    history.append(msg)
     # print(f"<-- messages: {messages}")
+
+    #### 4. output
+    # answer = user_input.upper() # Just a dummy response
+    # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
+    response = call_llm(messages, parameters, stream)
 
     if rag_enabled:
         msg['content'] = "{}: {}, temperature={}, rag_found={}\n{}".format(
@@ -215,13 +224,6 @@ def chat_fn(user_input, history, uploaded_files, parameters):
             parameters['emoj']['user'], now(),
             parameters['llm']['temperature'], msg['content'],
         )
-
-    history.append(msg)
-
-    #### 4. output
-    # answer = user_input.upper() # Just a dummy response
-    # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
-    response = call_llm(messages, parameters, stream)
 
     if stream:
         reply_content = "{}: {}, model={}\n".format(

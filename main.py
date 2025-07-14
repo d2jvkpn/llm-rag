@@ -42,11 +42,11 @@ with open(Path("configs") / "prompts.yaml", 'r') as f:
 # static parameters
 config['app'] = { "name": args.app, "version": args.version, "mode": args.mode }
 
-# emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶
+# emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶, 👤, 🎯
 config['emoj'] = {
-    "user": "📝",
-    "ai": "🤖",
-    "rag": "📚",
+    "user": "👤",
+    "ai": "🎯",
+    "rag": "📝",
 }
 
 # args.app.replace(" ", "-")
@@ -58,14 +58,13 @@ config['http']['port'] = args.port
 config['reranker']['enabled'] = args.reranker
 
 # dynamic parameters
-config['llm'] = {
-    "system_prompt": prompts[args.prompt]['system_prompt'].strip(),
-    "user_prompt": prompts[args.prompt]['user_prompt'].strip(),
-}
+config['llm'] = prompts[args.prompt]
+config['llm']['system_prompt'] =  config['llm']['system_prompt'].strip()
+config['llm']['user_prompt'] =  config['llm']['user_prompt'].strip()
+#config['llm']['temperature'] = 0.7
+#config['llm']['max_tokens'] = 1000
 
 config['llm']['stream'] = True
-config['llm']['temperature'] = 0.7
-config['llm']['max_tokens'] = 1000
 _model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
 config['llm']['model_choices'] = _model_choices
 config['llm']['selected_model'] = _model_choices[0]
@@ -108,11 +107,12 @@ def display_parameters(mode):
     #    f"- reranker: {json.dumps(reranker)}",
     #]
     d = config['reranker']
-    reranker = { "model": os.path.basename(d['model']), "enabled": d['enabled'] }
+    reranker = {
+        "model": os.path.basename(d['model']), "enabled": d['enabled'],
+    }
 
     if mode != "dev":
         parameters = {
-            "version": config['app']['version'],
             "reranker": { "enabled": reranker['enabled'] },
         }
         return "**Parameters**: " + json.dumps(parameters)
@@ -124,8 +124,7 @@ def display_parameters(mode):
     vector_db = { "collection": d['collection'] }
 
     parameters = {
-        "version": config['app']['version'], "reranker": reranker,
-        "embedding": embedding, "vector_db": vector_db,
+        "reranker": reranker, "embedding": embedding, "vector_db": vector_db,
     }
 
     #return "Parameters\n" + "\n".join(strs)
@@ -139,7 +138,7 @@ def panel_visibility(current_state):
 
 #### 4. run
 with gr.Blocks(
-    title=f"{config['app']['name']} v{config['app']['version']}",
+    title=f"{config['app']['name']}:{config['app']['mode']}-{config['app']['version']}",
     css=config['http'].get('css'), js=config['http'].get('js'),
 ) as webui:
     #param_info = {
@@ -222,8 +221,8 @@ with gr.Blocks(
             )
 
 
-        with gr.Column(scale=7, elem_classes=["my-column"]):
-            with gr.Row():
+        with gr.Column(scale=7, elem_id="chat-column"):
+            with gr.Row(elem_id="chat-header"):
                 toggle_panel = gr.Button("Panel", elem_id="toggle-panel")
 
                 with gr.Column(scale=8):

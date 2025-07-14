@@ -1,6 +1,9 @@
 # path: configs/prompts.yaml
 
 default:
+  temperature: 0.7
+  max_tokens: 1000
+
   system_prompt: |
     你是公司技术支持团队的 AI 助手，帮助员工快速找到开发文档、产品说明和操作流程中的关键信息。
 
