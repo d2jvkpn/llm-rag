@@ -3,11 +3,11 @@ import os, argparse
 from pathlib import Path
 
 import yaml
-from qdrant_client import QdrantClient, models as qmodels
+from qdrant_client import QdrantClient # models as qmodels
 
 
 if len(os.sys.argv) == 1:
-    print(f"!!! command is required: delete")
+    print("!!! command is required: delete")
     os.sys.exit(1)
 
 command = os.sys.argv[1]

@@ -162,16 +162,19 @@ def search_doc(vector, doc_ids, top_n, score_threshold=0.5):
     ## hnsw_ef: 搜索时的候选集大小, exact: 使用近似搜索
     #search_params=models.SearchParams(hnsw_ef=128, exact=False)
 
-    filters = [
-        qmodels.FieldCondition(key="doc_id", match=qmodels.MatchValue(value=doc_id))
-        for doc_id in doc_ids
-    ]
+    if doc_ids is not None:
+        query_filter = qmodels.Filter(must=[
+            qmodels.FieldCondition(key="doc_id", match=qmodels.MatchValue(value=doc_id))
+            for doc_id in doc_ids
+        ])
+    else:
+        query_filter = None
 
     hits = QClient.query_points(
         collection_name=collection, query=vector,
         #prefetch = models.Prefetch(query=[1, 23, 45, 67], using="mrl_byte", limit=1000),
         #search_params=search_params,
-        query_filter=qmodels.Filter(must=filters),
+        query_filter=query_filter,
         limit=top_n, with_payload=True, offset=None, score_threshold=score_threshold,
     )
 
