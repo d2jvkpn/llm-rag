@@ -3,9 +3,12 @@ import os, argparse, json, copy # time, shutil
 from pathlib import Path
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
-from src import embed, local_llms
+#import sys
+#root = os.path.dirname(os.path.abspath(__file__))
+#sys.path.append(Path(root)/"src")
+
+from src import embed, local_llms, chat
 from src.utils import now
-from src.chat import chat_fn, ui_update_fn, ui_update_str
 
 import yaml # uuid, litellm
 import gradio as gr
@@ -17,7 +20,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 
-parser.add_argument("--app", help="app name", default="RAG-Alpha")
+parser.add_argument("--app", help="app name", default="LLM-RAG")
 parser.add_argument("--version", help="app version", default="0.1.3")
 parser.add_argument("--config", help="config path", default=Path("configs") / "local.yaml")
 
@@ -233,7 +236,7 @@ with gr.Blocks(
             chatbot = gr.Chatbot(label="AI Assistant", type='messages', elem_id="my-chatbot")
 
             gr.ChatInterface(
-                chat_fn, type="messages", chatbot=chatbot,
+                chat.chat_fn, type="messages", chatbot=chatbot,
                 additional_inputs=[uploaded_files, parameters],
                 additional_outputs=[chatbot],
                 multimodal=False, autofocus=True,
@@ -246,54 +249,54 @@ with gr.Blocks(
 
     ####
     system_prompt_input.change(
-        fn=ui_update_str("llm", "system_prompt"),
+        fn=chat.ui_update_str("llm", "system_prompt"),
         inputs=[parameters, system_prompt_input], outputs=[parameters],
     )
 
     user_prompt_input.change(
-        fn=ui_update_str("llm", "user_prompt"),
+        fn=chat.ui_update_str("llm", "user_prompt"),
         inputs=[parameters, user_prompt_input], outputs=[parameters],
     )
 
     ####
     stream_checkbox.change(
-        fn=ui_update_fn("llm", "stream"),
+        fn=chat.ui_update_fn("llm", "stream"),
         inputs=[parameters, stream_checkbox], outputs=[parameters],
     )
 
     max_tokens_input.change(
-        fn=ui_update_fn("llm", "max_tokens", 20),
+        fn=chat.ui_update_fn("llm", "max_tokens", 20),
         inputs=[parameters, max_tokens_input], outputs=[parameters],
     )
 
     temperature_slider.change(
-        fn=ui_update_fn("llm", "temperature"),
+        fn=chat.ui_update_fn("llm", "temperature"),
         inputs=[parameters, temperature_slider], outputs=[parameters],
     )
 
     ####
     rag_checkbox.change(
-        fn=ui_update_fn("rag", "enabled"),
+        fn=chat.ui_update_fn("rag", "enabled"),
         inputs=[parameters, rag_checkbox], outputs=[parameters],
     )
 
     rag_verbose.change(
-        fn=ui_update_fn("rag", "verbose"),
+        fn=chat.ui_update_fn("rag", "verbose"),
         inputs=[parameters, rag_verbose], outputs=[parameters],
     )
 
     top_n_slider.change(
-        fn=ui_update_fn("qdrant", "top_n"),
+        fn=chat.ui_update_fn("qdrant", "top_n"),
         inputs=[parameters, top_n_slider], outputs=[parameters],
     )
 
     score_threshold_slider.change(
-        fn=ui_update_fn("qdrant", "score_threshold"),
+        fn=chat.ui_update_fn("qdrant", "score_threshold"),
         inputs=[parameters, score_threshold_slider], outputs=[parameters],
     )
 
     model_selector.change(
-        fn=ui_update_fn("llm", "selected_model"),
+        fn=chat.ui_update_fn("llm", "selected_model"),
         inputs=[parameters, model_selector], outputs=[parameters],
     )
 

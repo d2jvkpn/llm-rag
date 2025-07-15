@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
-import os, sys, re, shutil
+import os, re, shutil
 from pathlib import Path
 # os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
-sys.path.append(os.path.dirname(__file__))
 
-import rag
+#import sys
+#sys.path.append(os.path.dirname(__file__))
+#import rag
+
+from . import rag
 from utils import now, file_md5
 
 import litellm
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ####
 =======
 >>>>>>> 9f8d5e8 (...)
+=======
+
+>>>>>>> 79af43c (...)
 def ui_update_fn(sub, key, min_val=None, max_val=None):
     def fn(parameters, value):
         if min_val is not None and value < min_val:

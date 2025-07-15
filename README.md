@@ -1,4 +1,4 @@
-# RAG-Gradio
+# LLM-RAG
 ---
 ```meta
 date: 2025-07-10

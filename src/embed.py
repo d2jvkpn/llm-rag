@@ -11,8 +11,8 @@ from qdrant_client import QdrantClient, models as qmodels
 # TODO: langdetect
 
 
-QConf, QClient = {}, None
-
+QConf, QClient = None, None
+EmbeddingConf = None
 
 def init(config): # yaml filepath
     global QConf, QClient, EmbeddingConf
@@ -30,6 +30,8 @@ def init(config): # yaml filepath
         url=QConf['addr'], prefer_grpc=True, https=False, timeout=30,
     )
 
+def get():
+    print("???", QConf)
 
 def embedding_api(texts: list[str]): # Union[str, list[str]]
     api_base = EmbeddingConf['api_base']     # "http://127.0.0.1:11434/api/embed"
@@ -92,6 +94,7 @@ def vectordb_doc_exists(doc_id):
 
 def vectordb_save(doc, vectors, recreate=False):
     assert(len(doc['chunks']) == len(vectors))
+
     t0 = datetime.now()
     collection = QConf['collection']
     dimension = len(vectors[0])

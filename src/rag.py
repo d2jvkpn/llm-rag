@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-import os, sys, json
+import json
 from pathlib import Path
-sys.path.append(os.path.dirname(__file__))
 
-import embed, local_llms, process_doc
+#import os, sys
+#sys.path.append(os.path.dirname(__file__))
+#import embed, local_llms, process_doc
+
+from . import embed, local_llms, process_doc
 from utils import now
 
 
@@ -23,15 +26,15 @@ def embeding_tokens_usage(responses):
     usage = [0, 0, 0]
 
     for r in responses:
-        usage[0] += r.usage.prompt_tokens
-        usage[1] += r.usage.completion_tokens
-        usage[2] += r.usage.total_tokens
+        usage[0] += r['usage']['prompt_tokens']
+        usage[1] += r['usage']['completion_tokens']
+        usage[2] += r['usage']['total_tokens']
 
     return { "prompt_tokens": usage[0], "completion_tokens": usage[1], "total_tokens": usage[2] }
 
 
 # docs: { path: , doc_id: }, steps: document2chunks, litellm_embedding, vectordb_save
-def embedding_doc(doc, collection):
+def embedding_doc(doc):
     #doc_path = repr(doc['path'])
     ####
     if embed.vectordb_doc_exists(doc['doc_id']):
@@ -58,7 +61,7 @@ def embedding_doc(doc, collection):
 
     ####
     texts = [c['text']for c in doc_chunks['chunks']]
-    json_file = doc_dir / f"embedding_responses.{collection}.json"
+    json_file = doc_dir / f"embedding_responses.{embed.QConf['collection']}.json"
 
     if json_file.exists():
         print(f"{now()} found embedding_responses file: {json_file}")
@@ -90,7 +93,7 @@ def rag_query_docs(user_input, docs, parameters):
     limit = top_n*2 if parameters['reranker']['enabled'] else top_n
 
     for d in docs:
-        embedding_doc(d, parameters['qdrant']['collection'])
+        embedding_doc(d)
 
     doc_ids = [d['doc_id'] for d in docs]
 
