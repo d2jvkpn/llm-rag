@@ -1,0 +1,6 @@
+flake8
+
+#### llm
+sentence-transformers==4.1.0
+torch==2.7.1
+transformers==4.52

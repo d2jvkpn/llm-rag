@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("--app", help="app name", default="RAG-Alpha")
 parser.add_argument("--version", help="app version", default="0.1.3")
-parser.add_argument("--config", help="config path", default="./configs/local.yaml")
+parser.add_argument("--config", help="config path", default=Path("configs") / "local.yaml")
 
 parser.add_argument("--prompt", help="prompt name in configs/prompts.yaml", default="default")
 parser.add_argument("--rag", help="enable rag", action="store_true")
@@ -181,7 +181,7 @@ with gr.Blocks(
                 #clear_button = gr.Button("Clear", scale=1)
                 with gr.Row():
                     model_selector = gr.Dropdown(
-                        interactive=True, show_label=True, label="Select Model",
+                        interactive=True, show_label=True, label="Select a model",
                         value=config['llm']['selected_model'],
                         choices=config['llm']['model_choices'],
                         elem_id="model-selector", scale=2,
@@ -204,12 +204,12 @@ with gr.Blocks(
                     rag_verbose = gr.Checkbox(label="verbose", value=config['rag']['verbose'])
 
                     top_n_slider = gr.Slider(
-                        label="top n",
+                        label="top_n",
                         value=config['qdrant']['top_n'], minimum=1, maximum=30, step=1,
                     )
 
                     score_threshold_slider = gr.Slider(
-                        label="score threshold",
+                        label="score_threshold",
                         value=config['qdrant']['score_threshold'],
                         minimum=0.1, maximum=1.0, step=0.01,
                     )

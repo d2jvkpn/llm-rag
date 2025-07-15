@@ -22,7 +22,7 @@ def ui_update_fn(sub, key, min_val=None, max_val=None):
         if max_val is not None and value > max_val:
             value = max_val
 
-        print(f"<-- update {sub} {key}: {value}")
+        print(f"{now()} <-- update {sub} {key}: {value}")
         parameters[sub][key] = value
         return parameters
 
@@ -169,8 +169,6 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     # print(f"<-- user_prompt: {user_prompt}")
     # print(f"<-- chat_fn: uploaded_files={uploaded_files}, parameters={parameters}")
 
-    # TODO: how to add extract messages to history
-
     #### 1. init
     system_prompt = parameters['llm']['system_prompt'].strip()
     user_prompt = parameters['llm']['user_prompt'].strip()
@@ -179,7 +177,8 @@ def chat_fn(user_input, history, uploaded_files, parameters):
 
     user_input = user_input.strip()
     if user_input == "":
-        return ({"role": "assitant", "content": "" }, history)
+        yield ({"role": "assitant", "content": "" }, history)
+        return
 
     #### 2. rag
     rag_outputs = []
@@ -192,6 +191,8 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     messages = []
     if len(system_prompt) > 0:
         messages = [{"role": "system", "content": parameters['llm']['system_prompt']}]
+
+    # TODO: by inspecting user_input and history, you can add a system prompt(message) here
 
     for m in (history[-10:] if len(history) > 10 else history):
         # extract user_input only for rag message
@@ -240,8 +241,8 @@ def chat_fn(user_input, history, uploaded_files, parameters):
         answer = response.choices[0].message
         usage = response.usage
 
-        print("<-- llm tokens usage: prompt={}, completion={}, total={}".format(
-            usage.prompt_tokens, usage.completion_tokens, usage.total_tokens,
+        print("{} <-- llm tokens usage: prompt={}, completion={}, total={}".format(
+            now(), usage.prompt_tokens, usage.completion_tokens, usage.total_tokens,
         ))
 
         reply_content = "{}: {}, model={}, pct_tokens=[{}, {}, {}]\n{}".format(

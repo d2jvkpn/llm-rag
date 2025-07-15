@@ -17,10 +17,13 @@ version: 0.1.2
 jq 'map(del(.data))' embedding_responses.collection.json
 ```
 
-3. next
-- epub support
-- logging
+3. version 0.1.3
+- stream response
+- panel: rag-verbose, max_tokens, top_n, score_threshold
+- supports epub, odt, odp, md
+- cache embedding results by writting to json files
 - show cost tokens for embedding
 - show matching scores
-- run in container
-- basic auth by using nginx
+- **logging**
+- **run in container**
+- **basic auth by using nginx**
