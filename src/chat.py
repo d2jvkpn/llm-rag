@@ -29,9 +29,9 @@ def ui_update_fn(sub, key, min_val=None, max_val=None):
         if max_val is not None and value > max_val:
             value = max_val
 
-        print(f"{now()} <-- update {sub} {key}: {value}")
+        #print(f"{now()} <-- update {sub} {key}: {value}")
         parameters[sub][key] = value
-        return parameters
+        return
 
     return fn
 
@@ -39,7 +39,7 @@ def ui_update_str(sub, key):
     def fn(parameters, value):
         #print(f"<-- update {sub} {key}: {value}")
         parameters[sub][key] = value.strip()
-        return parameters
+        return
 
     return fn
 
@@ -187,6 +187,8 @@ def chat_fn(user_input, history, uploaded_files, parameters):
         yield ({"role": "assitant", "content": "" }, history)
         return
 
+    start_at = now()
+
     #### 2. rag
     rag_outputs = []
     if rag_enabled and uploaded_files and len(user_prompt) > 0:
@@ -201,10 +203,10 @@ def chat_fn(user_input, history, uploaded_files, parameters):
 
     # TODO: by inspecting user_input and history, you can add a system prompt(message) here
 
-    for m in (history[-10:] if len(history) > 10 else history):
-        # extract user_input only for rag message
+    for m in history: # (history[-10:] if len(history) > 10 else history):
         content = m['content'].split("\n", 1)[-1]
 
+        # extract user_input only for rag message
         if m['role'] == "user" and m['content'].startswith(parameters['emoj']['rag']):
             match = re.search(r"Input:\s*(.*?)\s*Context:", content, re.DOTALL)
             if match:
@@ -224,13 +226,13 @@ def chat_fn(user_input, history, uploaded_files, parameters):
 
     if rag_enabled:
         msg['content'] = "{}: {}, temperature={}, rag_found={}\n{}".format(
-            parameters['emoj']['rag'], now(),
+            parameters['emoj']['rag'], start_at,
             parameters['llm']['temperature'], len(rag_outputs),
             msg['content'],
         )
     else:
         msg['content'] = "{}: {}, temperature={}\n{}".format(
-            parameters['emoj']['user'], now(),
+            parameters['emoj']['user'], start_at,
             parameters['llm']['temperature'], msg['content'],
         )
 

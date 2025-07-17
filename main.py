@@ -250,54 +250,54 @@ with gr.Blocks(
     ####
     system_prompt_input.change(
         fn=chat.ui_update_str("llm", "system_prompt"),
-        inputs=[parameters, system_prompt_input], outputs=[parameters],
+        inputs=[parameters, system_prompt_input], outputs=[],
     )
 
     user_prompt_input.change(
         fn=chat.ui_update_str("llm", "user_prompt"),
-        inputs=[parameters, user_prompt_input], outputs=[parameters],
+        inputs=[parameters, user_prompt_input], outputs=[],
     )
 
     ####
     stream_checkbox.change(
         fn=chat.ui_update_fn("llm", "stream"),
-        inputs=[parameters, stream_checkbox], outputs=[parameters],
+        inputs=[parameters, stream_checkbox], outputs=[],
     )
 
     max_tokens_input.change(
         fn=chat.ui_update_fn("llm", "max_tokens", 20),
-        inputs=[parameters, max_tokens_input], outputs=[parameters],
+        inputs=[parameters, max_tokens_input], outputs=[],
     )
 
     temperature_slider.change(
         fn=chat.ui_update_fn("llm", "temperature"),
-        inputs=[parameters, temperature_slider], outputs=[parameters],
+        inputs=[parameters, temperature_slider], outputs=[],
     )
 
     ####
     rag_checkbox.change(
         fn=chat.ui_update_fn("rag", "enabled"),
-        inputs=[parameters, rag_checkbox], outputs=[parameters],
+        inputs=[parameters, rag_checkbox], outputs=[],
     )
 
     rag_verbose.change(
         fn=chat.ui_update_fn("rag", "verbose"),
-        inputs=[parameters, rag_verbose], outputs=[parameters],
+        inputs=[parameters, rag_verbose], outputs=[],
     )
 
     top_n_slider.change(
         fn=chat.ui_update_fn("qdrant", "top_n"),
-        inputs=[parameters, top_n_slider], outputs=[parameters],
+        inputs=[parameters, top_n_slider], outputs=[],
     )
 
     score_threshold_slider.change(
         fn=chat.ui_update_fn("qdrant", "score_threshold"),
-        inputs=[parameters, score_threshold_slider], outputs=[parameters],
+        inputs=[parameters, score_threshold_slider], outputs=[],
     )
 
     model_selector.change(
         fn=chat.ui_update_fn("llm", "selected_model"),
-        inputs=[parameters, model_selector], outputs=[parameters],
+        inputs=[parameters, model_selector], outputs=[],
     )
 
     toggle_panel.click(
