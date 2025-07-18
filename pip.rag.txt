@@ -1,14 +1,4 @@
-#### tools
-pyyaml
-gradio
-uuid
-
-#### clients
 qdrant-client
-requests
-litellm
-
-#### nlp
 six==1.17.0
 langchain
 langchain-community

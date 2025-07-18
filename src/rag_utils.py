@@ -89,7 +89,7 @@ def embedding_doc(doc):
     embed.vectordb_save(doc_chunks, vectors, recreate=False)
 
 
-def rag_query_docs(user_input, docs, parameters):
+def query_docs(user_input, docs, parameters):
     top_n = parameters['qdrant']['top_n']
     limit = top_n*2 if parameters['reranker']['enabled'] else top_n
 

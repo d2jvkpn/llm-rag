@@ -6,7 +6,7 @@ import re
 #sys.path.append(os.path.dirname(__file__))
 #import rag
 
-from . import biz_rag
+from . import rag_utils
 from .utils import now
 from .gradio_utils import copy_gradio_files
 
@@ -138,7 +138,7 @@ def handle_user_input(user_input, uploaded_files, parameters):
     rag_outputs = rag.rag_query_docs(user_input, docs, parameters)
 >>>>>>> 9f8d5e8 (...)
 
-    rag_outputs = biz_rag.rag_query_docs(user_input, docs, parameters)
+    rag_outputs = rag_utils.query_docs(user_input, docs, parameters)
     if len(rag_outputs) == 0:
         return ([], user_input)
 
@@ -184,7 +184,7 @@ def call_llm(messages, parameters, stream=False):
     return response
 
 
-def chat_fn(user_input, history, uploaded_files, parameters):
+def chat(user_input, history, uploaded_files, parameters):
     # user_input = {"text": "hello", "files":["'/tmp/gradio/4d..."]} # when multimodal=True
     # print(f"<-- system_prompt: {system_prompt}")
     # print(f"<-- user_prompt: {user_prompt}")

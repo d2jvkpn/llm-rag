@@ -7,14 +7,8 @@ os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 #root = os.path.dirname(os.path.abspath(__file__))
 #sys.path.append(Path(root)/"src")
 
-from src import embed, local_llms, biz_chat, gradio_utils
-from src.utils import now
 
-import yaml # uuid, litellm
-import gradio as gr
-
-
-#### 1. configuration
+#### 1. parse arguments
 parser = argparse.ArgumentParser(
     description="parse commandline arguments",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -35,6 +29,15 @@ parser.add_argument("--share", help="gradio share", action="store_true")
 parser.add_argument("--mode", help="running mode", default="dev")
 
 args = parser.parse_args()
+
+
+#### 2. load config
+from src import embed, local_llms, rag_chat, gradio_utils
+from src.utils import now
+
+import yaml # uuid, litellm
+import gradio as gr
+
 
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
@@ -88,7 +91,7 @@ _model = Path(config['embedding']['model']).name.replace(':', '--')
 config['qdrant']['collection'] = f"{config['embedding']['provider']}__{_model}"
 
 
-#### 2. setup
+#### 3. setup
 print(f"{now()} ==> args: {args}")
 
 os.makedirs(config['http']['upload_dir'], exist_ok=True)
@@ -238,7 +241,7 @@ with gr.Blocks(
             chatbot = gr.Chatbot(label="Conversation", type='messages', elem_id="my-chatbot")
 
             gr.ChatInterface(
-                biz_chat.chat_fn, type="messages", chatbot=chatbot,
+                rag_chat.chat, type="messages", chatbot=chatbot,
                 additional_inputs=[uploaded_files, parameters],
                 additional_outputs=[chatbot],
                 multimodal=False, autofocus=True,
