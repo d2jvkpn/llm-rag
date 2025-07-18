@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-import os, re, shutil
-from pathlib import Path
+import re
 # os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 #import sys
 #sys.path.append(os.path.dirname(__file__))
 #import rag
 
-from . import rag
-from utils import now, file_md5
+from . import biz_rag
+from .utils import now
+from .gradio_utils import copy_gradio_files
 
 import litellm
 
@@ -19,6 +19,7 @@ import litellm
 >>>>>>> 9f8d5e8 (...)
 =======
 
+<<<<<<< HEAD:src/chat.py
 <<<<<<< HEAD
 >>>>>>> 79af43c (...)
 def ui_update_fn(sub, key, min_val=None, max_val=None):
@@ -125,6 +126,8 @@ def copy_gradio_files(paths, dirctory):
     return docs
 
 
+=======
+>>>>>>> 4be9a87 (...):src/biz_chat.py
 def handle_user_input(user_input, uploaded_files, parameters):
     paths = [v.name for v in uploaded_files]
     docs = copy_gradio_files(paths, parameters['http']['upload_dir'])
@@ -135,7 +138,7 @@ def handle_user_input(user_input, uploaded_files, parameters):
     rag_outputs = rag.rag_query_docs(user_input, docs, parameters)
 >>>>>>> 9f8d5e8 (...)
 
-    rag_outputs = rag.rag_query_docs(user_input, docs, parameters)
+    rag_outputs = biz_rag.rag_query_docs(user_input, docs, parameters)
     if len(rag_outputs) == 0:
         return ([], user_input)
 

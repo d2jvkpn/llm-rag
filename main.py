@@ -7,7 +7,7 @@ os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 #root = os.path.dirname(os.path.abspath(__file__))
 #sys.path.append(Path(root)/"src")
 
-from src import embed, local_llms, chat
+from src import embed, local_llms, biz_chat, gradio_utils
 from src.utils import now
 
 import yaml # uuid, litellm
@@ -233,10 +233,10 @@ with gr.Blocks(
                 #gr.ParamViewer(value=param_info)
 
             # height=600
-            chatbot = gr.Chatbot(label="AI Assistant", type='messages', elem_id="my-chatbot")
+            chatbot = gr.Chatbot(label="Conversation", type='messages', elem_id="my-chatbot")
 
             gr.ChatInterface(
-                chat.chat_fn, type="messages", chatbot=chatbot,
+                biz_chat.chat_fn, type="messages", chatbot=chatbot,
                 additional_inputs=[uploaded_files, parameters],
                 additional_outputs=[chatbot],
                 multimodal=False, autofocus=True,
@@ -249,54 +249,54 @@ with gr.Blocks(
 
     ####
     system_prompt_input.change(
-        fn=chat.update_sub_key("llm", "system_prompt"),
+        fn=gradio_utils.update_sub_key("llm", "system_prompt"),
         inputs=[parameters, system_prompt_input], outputs=[],
     )
 
     user_prompt_input.change(
-        fn=chat.update_sub_key("llm", "user_prompt"),
+        fn=gradio_utils.update_sub_key("llm", "user_prompt"),
         inputs=[parameters, user_prompt_input], outputs=[],
     )
 
     ####
     stream_checkbox.change(
-        fn=chat.update_sub_key("llm", "stream"),
+        fn=gradio_utils.update_sub_key("llm", "stream"),
         inputs=[parameters, stream_checkbox], outputs=[],
     )
 
     max_tokens_input.change(
-        fn=chat.update_sub_key_minmax("llm", "max_tokens", 20),
+        fn=gradio_utils.update_sub_key_minmax("llm", "max_tokens", 20),
         inputs=[parameters, max_tokens_input], outputs=[],
     )
 
     temperature_slider.change(
-        fn=chat.update_sub_key("llm", "temperature"),
+        fn=gradio_utils.update_sub_key("llm", "temperature"),
         inputs=[parameters, temperature_slider], outputs=[],
     )
 
     ####
     rag_checkbox.change(
-        fn=chat.update_sub_key("rag", "enabled"),
+        fn=gradio_utils.update_sub_key("rag", "enabled"),
         inputs=[parameters, rag_checkbox], outputs=[],
     )
 
     rag_verbose.change(
-        fn=chat.update_sub_key("rag", "verbose"),
+        fn=gradio_utils.update_sub_key("rag", "verbose"),
         inputs=[parameters, rag_verbose], outputs=[],
     )
 
     top_n_slider.change(
-        fn=chat.update_sub_key("qdrant", "top_n"),
+        fn=gradio_utils.update_sub_key("qdrant", "top_n"),
         inputs=[parameters, top_n_slider], outputs=[],
     )
 
     score_threshold_slider.change(
-        fn=chat.update_sub_key("qdrant", "score_threshold"),
+        fn=gradio_utils.update_sub_key("qdrant", "score_threshold"),
         inputs=[parameters, score_threshold_slider], outputs=[],
     )
 
     model_selector.change(
-        fn=chat.update_sub_key("llm", "selected_model"),
+        fn=gradio_utils.update_sub_key("llm", "selected_model"),
         inputs=[parameters, model_selector], outputs=[],
     )
 
