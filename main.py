@@ -166,8 +166,10 @@ with gr.Blocks(
 
     panel_state = gr.State(False)
 
+    #gr.HTML("<h2 style='text-align: center'> LLM RAG </h2>")
+
     with gr.Row():
-        with gr.Column(scale=3, elem_classes=["my-column"], visible=True) as panel_column:
+        with gr.Column(scale=3, elem_classes=["panel-column"], visible=True) as panel_column:
             # gr.HTML('<h4 style="margin: 0"> Control panel </h4>')
             system_prompt_input = gr.Textbox(
                 interactive=True, label="System Prompt", lines=5, max_lines=5,
@@ -176,7 +178,7 @@ with gr.Blocks(
 
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                lines=10, max_lines=10,
+                lines=8, max_lines=8,
                 value=config['llm']['user_prompt'],
             )
 
