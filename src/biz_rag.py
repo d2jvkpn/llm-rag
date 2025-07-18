@@ -6,8 +6,9 @@ from pathlib import Path
 #sys.path.append(os.path.dirname(__file__))
 #import embed, local_llms, process_doc
 
-from . import embed, local_llms, process_doc
-from utils import now
+from . import embed, local_llms
+from .process_doc import process_doc
+from .utils import now
 
 
 def points_to_chunks(points):

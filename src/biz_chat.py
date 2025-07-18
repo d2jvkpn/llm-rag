@@ -156,9 +156,13 @@ def call_llm(messages, parameters, stream=False):
     temperature = parameters['llm']['temperature']
     llm_models = parameters['llm_models']
 
+    content = messages[-1]['content']
+    if len(content) > 32:
+        content = content[:29] + "..."
+
     print("{} call_llm: provider={}, model={}, temperature={}, content={}".format(
         now(), provider, model, temperature,
-        repr(messages[-1]['content']),
+        repr(content),
     ))
 
     found = next(

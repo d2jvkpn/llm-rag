@@ -2,7 +2,7 @@
 import os, argparse, json
 from pathlib import Path
 
-from src import process_doc
+from src.process_doc import process_doc
 from src.utils import file_md5
 
 import yaml
@@ -10,7 +10,7 @@ from qdrant_client import QdrantClient # models as qmodels
 
 
 if len(os.sys.argv) == 1:
-    print("!!! command is required: delete, read_doc")
+    print("!!! command is required: delete_collection, read_doc")
     os.sys.exit(1)
 
 command = os.sys.argv[1]
@@ -38,7 +38,7 @@ collection = f"{config['embedding']['provider']}__{_model}"
 
 client = QdrantClient(url=addr, prefer_grpc=True, https=False, timeout=30)
 
-if command == "delete":
+if command == "delete_collection":
     if client.collection_exists(collection):
         # print(f"--> deleting collection: {collection}")
         if not args.force:
