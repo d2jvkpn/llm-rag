@@ -8,3 +8,4 @@ python-pptx
 ebooklib
 beautifulsoup4
 odfpy
+docling
