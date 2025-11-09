@@ -1,5 +1,4 @@
 PyYAML
 gradio
-uuid
 requests
 litellm
