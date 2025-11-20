@@ -113,9 +113,12 @@ def call_llm(messages, parameters):
     provider, model = parameters['llm']['selected_model'].split("/", 1)
     temperature = parameters['llm']['temperature']
     llm_models = parameters['llm_models']
+<<<<<<< HEAD
 
     if found.get("hosted_vllm", False) is True:
         provider = "hosted_vllm"
+=======
+>>>>>>> 9f8d5e8 (...)
 
     print(f"{now()} call_llm: provider={provider}, model={model}, temperature={temperature}")
 
