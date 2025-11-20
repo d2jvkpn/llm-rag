@@ -170,13 +170,13 @@ with gr.Blocks(
         with gr.Column(scale=3, elem_classes=["my-column"], visible=True) as panel_column:
             # gr.HTML('<h4 style="margin: 0"> Control panel </h4>')
             system_prompt_input = gr.Textbox(
-                interactive=True, label="System Prompt", lines=6, max_lines=6,
+                interactive=True, label="System Prompt", lines=5, max_lines=5,
                 value=config['llm']['system_prompt'],
             )
 
             user_prompt_input = gr.Textbox(
                 label="User Prompt for RAG, keep placeholder {input} and {context}",
-                lines=12, max_lines=12,
+                lines=10, max_lines=10,
                 value=config['llm']['user_prompt'],
             )
 
@@ -249,54 +249,54 @@ with gr.Blocks(
 
     ####
     system_prompt_input.change(
-        fn=chat.ui_update_str("llm", "system_prompt"),
+        fn=chat.update_sub_key("llm", "system_prompt"),
         inputs=[parameters, system_prompt_input], outputs=[],
     )
 
     user_prompt_input.change(
-        fn=chat.ui_update_str("llm", "user_prompt"),
+        fn=chat.update_sub_key("llm", "user_prompt"),
         inputs=[parameters, user_prompt_input], outputs=[],
     )
 
     ####
     stream_checkbox.change(
-        fn=chat.ui_update_fn("llm", "stream"),
+        fn=chat.update_sub_key("llm", "stream"),
         inputs=[parameters, stream_checkbox], outputs=[],
     )
 
     max_tokens_input.change(
-        fn=chat.ui_update_fn("llm", "max_tokens", 20),
+        fn=chat.update_sub_key_minmax("llm", "max_tokens", 20),
         inputs=[parameters, max_tokens_input], outputs=[],
     )
 
     temperature_slider.change(
-        fn=chat.ui_update_fn("llm", "temperature"),
+        fn=chat.update_sub_key("llm", "temperature"),
         inputs=[parameters, temperature_slider], outputs=[],
     )
 
     ####
     rag_checkbox.change(
-        fn=chat.ui_update_fn("rag", "enabled"),
+        fn=chat.update_sub_key("rag", "enabled"),
         inputs=[parameters, rag_checkbox], outputs=[],
     )
 
     rag_verbose.change(
-        fn=chat.ui_update_fn("rag", "verbose"),
+        fn=chat.update_sub_key("rag", "verbose"),
         inputs=[parameters, rag_verbose], outputs=[],
     )
 
     top_n_slider.change(
-        fn=chat.ui_update_fn("qdrant", "top_n"),
+        fn=chat.update_sub_key("qdrant", "top_n"),
         inputs=[parameters, top_n_slider], outputs=[],
     )
 
     score_threshold_slider.change(
-        fn=chat.ui_update_fn("qdrant", "score_threshold"),
+        fn=chat.update_sub_key("qdrant", "score_threshold"),
         inputs=[parameters, score_threshold_slider], outputs=[],
     )
 
     model_selector.change(
-        fn=chat.ui_update_fn("llm", "selected_model"),
+        fn=chat.update_sub_key("llm", "selected_model"),
         inputs=[parameters, model_selector], outputs=[],
     )
 

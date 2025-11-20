@@ -19,8 +19,12 @@ import litellm
 >>>>>>> 9f8d5e8 (...)
 =======
 
+<<<<<<< HEAD
 >>>>>>> 79af43c (...)
 def ui_update_fn(sub, key, min_val=None, max_val=None):
+=======
+def update_sub_key_minmax(sub, key, min_val=None, max_val=None):
+>>>>>>> 3440521 (...)
     def fn(parameters, value):
         if min_val is not None and value < min_val:
             value = min_val
@@ -35,9 +39,12 @@ def ui_update_fn(sub, key, min_val=None, max_val=None):
 
     return fn
 
-def ui_update_str(sub, key):
+def update_sub_key(sub, key):
     def fn(parameters, value):
         #print(f"<-- update {sub} {key}: {value}")
+        if type(value) == str:
+            value = value.strip()
+
         parameters[sub][key] = value.strip()
         return
 
