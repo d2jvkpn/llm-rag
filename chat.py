@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import os, re, shutil
 from pathlib import Path
+# os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 import rag
 from src.utils import now, file_md5
 
+import litellm
 
 <<<<<<< HEAD
 ####
@@ -131,6 +133,32 @@ def handle_user_input(user_input, uploaded_files, parameters):
     return (rag_outputs, user_input)
 
 
+def call_llm(messages, parameters, stream=False):
+    provider, model = parameters['llm']['selected_model'].split("/", 1)
+    temperature = parameters['llm']['temperature']
+    llm_models = parameters['llm_models']
+
+    print(f"{now()} call_llm: provider={provider}, model={model}, temperature={temperature}")
+
+    found = next(
+        (v for v in llm_models if v['provider'] == provider and v['model'] == model),
+        None,
+    )
+
+    if found.get("hosted_vllm", False) is True:
+        provider = "hosted_vllm"
+
+    response = litellm.completion(
+        custom_llm_provider=provider, model=model,
+        api_base=found.get("api_base"), api_key=found.get("api_key"),
+        max_tokens=parameters['llm']['max_tokens'], temperature=temperature,
+        num_retries=3, timeout=60, stream=stream,
+        messages=messages,
+    )
+
+    return response
+
+
 def chat_fn(user_input, history, uploaded_files, parameters):
     # user_input = {"text": "hello", "files":["'/tmp/gradio/4d..."]} # when multimodal=True
     # print(f"<-- system_prompt: {system_prompt}")
@@ -177,7 +205,7 @@ def chat_fn(user_input, history, uploaded_files, parameters):
     #### 4. output
     # answer = user_input.upper() # Just a dummy response
     # reply = { "role": "assistant", "content": f"✨: {now()}, model={repr(model)}\n{answer}" }
-    response = rag.call_llm(messages, parameters)
+    response = call_llm(messages, parameters, False)
     usage = response.usage
     ans = response.choices[0].message
 

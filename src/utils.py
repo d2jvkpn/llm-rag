@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import hashlib, socket
+import hashlib
 from datetime import datetime
 
 
@@ -21,18 +21,6 @@ def file_md5(file_path):
             hash_md5.update(chunk)
 
     return hash_md5.hexdigest()
-
-
-def get_local_ip():
-    try:
-        # 连接到一个外部地址（不需要真的连通，只是用于获取绑定的IP）
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))  # Google DNS，任意公网IP即可
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"  # 回退为本地环回地址
 
 
 def chunk_list(lst, size=10):

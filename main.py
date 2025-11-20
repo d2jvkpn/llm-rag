@@ -4,10 +4,10 @@ from pathlib import Path
 os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms
-from src.utils import now, get_local_ip
+from src.utils import now
 from chat import chat_fn, ui_update_fn, ui_update_str
 
-import yaml, uuid # litellm
+import yaml # uuid, litellm
 import gradio as gr
 
 
@@ -18,6 +18,7 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument("--app", help="app name", default="RAG-Gradio")
+parser.add_argument("--version", help="app version", default="0.1.3")
 parser.add_argument("--config", help="config path", default="./configs/local.yaml")
 
 parser.add_argument("--reranker", help="enable reranker", action="store_true")
@@ -39,21 +40,8 @@ args = parser.parse_args()
 with open(args.config, 'r') as f:
     config = yaml.safe_load(f)
 
-
-##### dynamic parameters
-config['llm']['temperature'] = 0.7
-config['llm']['max_tokens'] = 1000
-_model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
-config['llm']['model_choices'] = _model_choices
-config['llm']['selected_model'] = _model_choices[0]
-config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
-config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
-
-config['rag'] = { "enabled": False }
-
-
-#### static parameters
-config['app'] = { "name": args.app, "mode": args.mode }
+# static parameters
+config['app'] = { "name": args.app, "version": args.version, "mode": args.mode }
 
 # emoj: 📚, 🤖, 🧑, 📝, 👀, ✨, 📄, 💬, 🔍, 🐦‍⬛, 🦉, 🪶
 config['emoj'] = {
@@ -68,6 +56,17 @@ config['http']['share'] = args.share
 config['http']['host'], config['http']['port'] = args.host, args.port
 
 config['reranker']['enabled'] = args.reranker
+
+# dynamic parameters
+config['llm']['temperature'] = 0.7
+config['llm']['max_tokens'] = 1000
+_model_choices = [f"{v['provider']}/{v['model']}" for v in config['llm_models']]
+config['llm']['model_choices'] = _model_choices
+config['llm']['selected_model'] = _model_choices[0]
+config['llm']['system_prompt'] = config['llm']['system_prompt'].strip()
+config['llm']['user_prompt'] = config['llm']['user_prompt'].strip()
+
+config['rag'] = { "enabled": False }
 
 css = Path("assets") / "style.css"
 if css.exists():
@@ -133,10 +132,11 @@ def panel_visibility(current_state):
     new_state = not current_state
     return gr.update(visible=new_state), new_state
 
-#### 5. run
+
+#### 4. run
 with gr.Blocks(
-    title=config['app']['name'], css=config['http'].get('css'),
-    js=config['http'].get('js'),
+    title=f"{config['app']['name']} v{config['app']['version']}",
+    css=config['http'].get('css'), js=config['http'].get('js'),
 ) as webui:
     #param_info = {
     #    "temperature": {"type": "float", "description": "Creativity level", "default": 0.7},
@@ -285,8 +285,6 @@ with gr.Blocks(
         outputs=[panel_column, panel_state]
     )
 
-
-print(f"{now()} gradio is starting: http://{get_local_ip()}:{config['http']['port']}")
 
 webui.launch(
     share=config['http']['share'],

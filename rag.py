@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 import json
 from pathlib import Path
-# os.environ['LITELLM_LOCAL_MODEL_COST_MAP'] = "True"
 
 from src import embed, local_llms, process_doc
 from src.utils import now
-
-import litellm
 
 
 def points_to_chunks(points):
@@ -126,6 +123,7 @@ def rag_query_docs(user_input, docs, parameters):
     points = [p for _, p in sorted(zip(scores, hits.points), reverse=True)][:top_n]
 
     return points_to_chunks(points)
+<<<<<<< HEAD
 
 
 def call_llm(messages, parameters):
@@ -155,3 +153,5 @@ def call_llm(messages, parameters):
     )
 
     return response
+=======
+>>>>>>> 151d1d9 (...)
