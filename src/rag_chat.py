@@ -131,12 +131,16 @@ def copy_gradio_files(paths, dirctory):
 def handle_user_input(user_input, uploaded_files, parameters):
     paths = [v.name for v in uploaded_files]
     docs = copy_gradio_files(paths, parameters['http']['upload_dir'])
+<<<<<<< HEAD
     # print(f"{now()} 📎 Uploaded: {docs}")
 <<<<<<< HEAD
 =======
 
     rag_outputs = rag.rag_query_docs(user_input, docs, parameters)
 >>>>>>> 9f8d5e8 (...)
+=======
+    print(f"{now()} 📎 Uploaded: {docs}")
+>>>>>>> 4670524 (...)
 
     rag_outputs = rag_utils.query_docs(user_input, docs, parameters)
     if len(rag_outputs) == 0:

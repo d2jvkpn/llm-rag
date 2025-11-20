@@ -6,7 +6,8 @@ import process_ooxml, process_opendoc
 from process_utils import paragraphs_to_chunks, doc_filename
 
 import ebooklib
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+#from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from ebooklib import epub
 from bs4 import BeautifulSoup
@@ -30,27 +31,30 @@ def document2chunks(path, doc_id, chunk_size=1000, chunk_overlap=100):
     elif ext == "md":
         return md2chunks(path, doc_id, chunk_size, chunk_overlap)
     elif ext == "epub":
-        return epub2chunks(path, doc_id, chunk_size)
+        return epub2chunks(path, doc_id, chunk_size, chunk_size, chunk_overlap)
     elif ext == "txt":
-        return text2chunks(path, doc_id, chunk_size)
+        return text2chunks(path, doc_id, chunk_size, chunk_size, chunk_overlap)
     else:
         raise ValueError("unknown filetype")
 
 
-def text2chunks(path, doc_id, chunk_size):
+def text2chunks(path, doc_id, chunk_size, chunk_overlap):
     filename = doc_filename(path)
     with open(path, 'r', encoding='utf-8') as f:
         text = f.read()
 
-    #texts = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
-    paragraphs = [p.strip() for p in re.split(r'\n', text) if p.strip()]
-    texts = paragraphs_to_chunks(paragraphs, chunk_size)
+    #docs = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
+    #paragraphs = [p.strip() for p in re.split(r'\n', text) if p.strip()]
+    #docs = paragraphs_to_chunks(paragraphs, chunk_size)
+
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    docs = splitter.create_documents([text])
 
     chunks = []
-    for i in range(len(texts)):
+    for i in range(len(docs)):
         payload = {
             "filename": filename, "doc_id": doc_id,
-            "chunk_id": f"{doc_id}-page0-c{i}", "text": texts[i],
+            "chunk_id": f"{doc_id}-page0-c{i}", "text": docs[i],
         }
 
         chunks.append(payload)

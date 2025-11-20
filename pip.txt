@@ -1,4 +1,0 @@
-PyYAML
-gradio
-requests
-litellm

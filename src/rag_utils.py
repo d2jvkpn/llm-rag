@@ -85,7 +85,15 @@ def embedding_doc(doc):
 
     ####
     # TODO: ??atomicity
-    print(f"{now()} embedding_doc/vectordb_save: chunks={len(texts)}, doc={doc}")
+    print(
+        f"{now()} embedding_doc/vectordb_save: chunks={len(texts)}, "
+        "vectors={len(vectors)}, doc={doc}"
+    )
+
+    if len(vectors) == 0:
+        print(f"{now()} Failed to embedding_doc, no chunks: {doc}")
+        return
+
     embed.vectordb_save(doc_chunks, vectors, recreate=False)
 
 

@@ -6,6 +6,12 @@ authors: []
 version: 0.1.2
 ```
 
+This project is a Retrieval-Augmented Generation (RAG) application built with Python 3, designed to 
+provide accurate, context-aware answers by combining large language models with an efficient 
+document retrieval pipeline. The system integrates a user-friendly Gradio WebUI, making it easy for 
+end users to upload documents, query information, and interact with the model through a clean and 
+intuitive interface.
+
 
 #### ch01. 
 1. docs
